@@ -1,0 +1,12 @@
+.idea
+args/*
+!args/*example.json
+runs/*
+!runs/.gitkeep
+src/__pycache__
+src/functions/__pycache__
+observations/*
+!observations/README.md
+notebooks/.ipynb_checkpoints
+notebooks/*
+!notebooks/*.ipynb

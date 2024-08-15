@@ -1,0 +1,33 @@
+{
+  "simulation_folder": "/path/lake_name",
+  "calibration_folder": "runs/lake_name",
+  "observations": [{
+    "file": "observations/lake_name/temperature.csv",
+    "parameter": "temperature",
+    "unit": "degC",
+    "start": "1982-01-01T01:00:00+00:00",
+    "end": "2022-01-01T01:00:00+00:00"
+  }],
+  "simulation": "simstrat",
+  "execute": "docker run --rm --user $(id -u):$(id -g) -v {calibration_folder}:/simstrat/run eawag/simstrat:3.0.4 Settings.par",
+  "parameters": [
+    {"name": "a_seiche", "initial":  2.0e-5, "min": 1e-5, "max": 0.5},
+    {"name": "f_wind", "initial":  1.75, "min": 0.10, "max": 1.75},
+    {"name": "p_lw", "initial":  0.8, "min": 0.80, "max": 1.20},
+    {"name": "snow_temp", "initial":  0.501635283, "min": 0.50, "max": 10.00},
+    {"name": "p_absorb", "initial":  1.49916053, "min": 0.5, "max": 1.5}
+  ],
+  "calibration_framework": "scipy",
+  "calibration_options": {
+    "method": "Nelder-Mead",
+    "maxfev": 500,
+    "disp": true,
+    "fatol": 0.01,
+    "xatol": 100,
+    "objective_function": "rms",
+    "objective_variables": ["temperature"],
+    "objective_weights": [1],
+    "time_mode": "nearest",
+    "depth_mode": "linear_interpolation"
+  }
+}
