@@ -64,8 +64,10 @@ Observation files should be csv files with the following structure:
 - The values should all have the same units. 
 - There should be one file per lake and per parameter, e.g. lake_name/temperature.csv, lake_name/secchi.csv
 
-
-
+Observation frequency both in time and in depth can have a large impact on calibration results. A disproportionate 
+amount of observations in a given season or at a given depth will bias the calibration. This can be handled by 
+down sampling the observation to specific time intervals e.g. monthly and fixed depth values e.g. 1, 2, 5, 20 or by 
+adjusting the weight given to each observation. This should be done prior to producing the observation files.
 
 ## License
 This package is licensed under the MIT License.
