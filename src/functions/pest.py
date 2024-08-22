@@ -51,6 +51,8 @@ def copy_model_inputs(calibration_folder, simulation_folder):
         file = os.path.join(simulation_folder, item)
         if os.path.isfile(file):
             shutil.copy2(file, output_folder)
+        elif item != "Results":
+            shutil.copytree(file, os.path.join(output_folder, item))
 
 def read_observation_data(calibration_options, observations):
     times = []
@@ -73,7 +75,7 @@ def write_pest_run_file(calibration_folder, execute):
         file.write('#!/bin/bash\n')
         file.write('dir="$(dirname "$(realpath "$0")")"\n')
         file.write('folder=$(basename "$(dirname "$(realpath "$0")")")\n')
-        file.write('cp "/pest/calibrate/inputs"/* "$dir"/\n')
+        file.write('cp -r "/pest/calibrate/inputs"/* "$dir"/\n')
         file.write(execute.format(calibration_folder=os.path.abspath(calibration_folder) + "/$folder"))
     os.chmod(os.path.join(calibration_folder, "run.sh"), 0o755)
 
@@ -82,12 +84,7 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
         file_dict = {
             "temperature": "Results/T_out.dat"
         }
-        par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
-        if len(par_files) != 1:
-            raise ValueError("{} PAR files located in simulation folder".format(len(par_files)))
-        par_file = par_files[0]
-    else:
-        raise ValueError("write_pest_pst_file not implemented for simulation: {}".format(simulation))
+        par_file = "Calibration.par"
 
     with open(os.path.join(calibration_folder, "pest.pst"), 'w') as file:
         file.write('pcf\n')
@@ -134,6 +131,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
             config = json.load(file)
         for parameter in parameters:
             config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+        config["Simulation"]["Continue from last snapshot"] = False
         config_text = json.dumps(config)
         config_text = config_text.replace('$$"', '#"').replace('"$$', '"#')
         config_text = config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
