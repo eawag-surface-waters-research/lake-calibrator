@@ -3,7 +3,7 @@ import os
 def verify_args(args):
     args_properties = {
         "simulation_folder": verify_folder,
-        "calibration_folder": verify_folder,
+        "calibration_folder": no_verify,
         "observations": no_verify,
         "simulation": no_verify,
         "execute": no_verify,
@@ -26,10 +26,8 @@ def verify_file(value):
         raise ValueError("Argument file not found at {}".format(os.path.abspath(value)))
 
 def verify_folder(value):
-    try:
-        os.makedirs(value, exist_ok=True)
-    except:
-        raise ValueError("Failed to create folder {}".format(os.path.abspath(value)))
+    if not (os.path.exists(value) and os.path.isdir(value)):
+        raise ValueError("Folder doesnt exist".format(os.path.abspath(value)))
 
 def verify_bool(value):
     if not isinstance(value, bool):

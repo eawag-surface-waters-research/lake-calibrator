@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import shutil
 import argparse
 from functions.log import Logger
 from functions.verify import verify_args, verify_file
@@ -16,6 +17,10 @@ def calibrate(arguments):
         log = Logger()
     log.initialise("Lake Calibrator")
     log.inputs("Arguments", arguments)
+    if os.path.exists(args["calibration_folder"]):
+        log.info("Removing existing calibration folder")
+        shutil.rmtree(args["calibration_folder"])
+    os.makedirs(args["calibration_folder"])
     if arguments["calibration_framework"] == "scipy":
         results = scipy_calibrate(arguments, log)
     elif arguments["calibration_framework"] == "PEST":
@@ -23,6 +28,8 @@ def calibrate(arguments):
     else:
         raise ValueError("Unrecognised calibration framework: {}".format(arguments["calibration_framework"]))
     log.inputs("Outputs", results)
+    with open(os.path.join(args["calibration_folder"], "results.json"), "w") as f:
+        json.dump(results, f, indent=4)
     return results
 
 

@@ -4,6 +4,7 @@ import shutil
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+from .general import parse_observation_file, days_since_year
 
 
 def edit_par_file(folder, parameter_names, parameter_values):
@@ -80,10 +81,16 @@ def parse_output_file(file, reference_year):
     df = df.sort_index()
     return df
 
-def parse_observation_file(file, start, end):
-    df = pd.read_csv(file)
-    df['time'] = pd.to_datetime(df['time'])
-    df = df.set_index('time')
-    df = df.sort_index()
-    df = df.loc[start:end]
-    return df
+def set_simstrat_outputs(calibration_folder, times, depths, reference_year):
+    if len(depths) < 2:
+        raise ValueError("There is a single output depth in file (probably because there are observations only at one depth). This will be misunderstood by Simstrat.")
+    with open(os.path.join(calibration_folder, "inputs", "z_out.dat"), 'w') as file:
+        file.write("output depths\n")
+        for z in depths:
+            file.write("%.2f\n" % -abs(z))
+    with open(os.path.join(calibration_folder, "inputs", "t_out.dat"), 'w') as file:
+        file.write("output times\n")
+        for t in times:
+            file.write("%.4f\n" % days_since_year(t, reference_year))
+
+
