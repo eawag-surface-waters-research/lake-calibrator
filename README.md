@@ -23,7 +23,7 @@ pip install requirements.txt
 ### Command line
 
 ```commandline
-python src/lake_calibrator/main.py <path>
+python src/calibrate.py <path>
 ```
 Where **path** is the path of the input arguments file.
 **path** should either be absolute or relative to the directory from which you run the script.
@@ -31,7 +31,7 @@ Where **path** is the path of the input arguments file.
 ### Script
 
 ```python
-from main import calibrate
+from calibrate import calibrator
 
 arguments = {...}
 

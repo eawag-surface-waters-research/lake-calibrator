@@ -9,7 +9,7 @@ from lake_calibrator.scipy_calibrate import scipy_calibrate
 from lake_calibrator.pest_calibrate import pest_calibrate
 
 
-def calibrate(arguments):
+def calibrator(arguments):
     verify_args(arguments)
     if "log" in arguments and arguments["log"]:
         log = Logger(path=arguments["calibration_folder"])
@@ -44,5 +44,5 @@ if __name__ == "__main__":
             args = json.load(f)
     except:
         raise ValueError("Failed to parse {}. Verify it is a valid json file.".format(arg_file))
-    calibrate(args)
+    calibrator(args)
 
