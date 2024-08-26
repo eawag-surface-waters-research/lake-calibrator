@@ -159,7 +159,7 @@ def verify_args(args):
     }
     for arg in args_properties.keys():
         if arg not in args:
-            raise ValueError("Argument {} required in arguments file.")
+            raise ValueError("Argument {} required in arguments file.".format(arg))
         try:
             args_properties[arg](args[arg])
         except Exception as e:
