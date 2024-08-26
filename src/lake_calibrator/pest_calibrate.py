@@ -9,7 +9,9 @@ from .simstrat import set_simstrat_outputs
 def pest_calibrate(args, log):
     log.info("Calibrating {} with PEST".format(args["simulation"]))
     pest_input_files(args, log)
-    exit()
+    if "run" in args["calibration_options"] and not args["calibration_options"]["run"]:
+        log.info("Not running PEST, existing after producing inputs.")
+        return {}
     log.info("Running PEST")
     cmd = ("docker run -v /var/run/docker.sock:/var/run/docker.sock -v {}:/pest/calibrate --rm "
            "eawag/pest_hp:18.0.0 -f pest -a {} -p {}".format(os.path.abspath(args["calibration_folder"]),
