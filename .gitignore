@@ -4,6 +4,7 @@ args/*
 runs/*
 !runs/.gitkeep
 src/__pycache__
+src/lake_calibrator/__pycache__
 src/functions/__pycache__
 observations/*
 !observations/README.md

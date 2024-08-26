@@ -23,7 +23,7 @@ pip install requirements.txt
 ### Command line
 
 ```commandline
-python src/main.py <path>
+python src/lake_calibrator/main.py <path>
 ```
 Where **path** is the path of the input arguments file.
 
