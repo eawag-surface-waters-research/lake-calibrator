@@ -26,6 +26,7 @@ pip install requirements.txt
 python src/lake_calibrator/main.py <path>
 ```
 Where **path** is the path of the input arguments file.
+**path** should either be absolute or relative to the directory from which you run the script.
 
 ### Script
 

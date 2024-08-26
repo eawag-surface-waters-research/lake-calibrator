@@ -3,8 +3,8 @@ import json
 import shutil
 import numpy as np
 import pandas as pd
-from functions import run_subprocess, parse_observation_file
-from simstrat import set_simstrat_outputs
+from .functions import run_subprocess, parse_observation_file
+from .simstrat import set_simstrat_outputs
 
 def pest_calibrate(args, log):
     log.info("Calibrating {} with PEST".format(args["simulation"]))

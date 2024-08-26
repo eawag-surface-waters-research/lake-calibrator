@@ -4,7 +4,6 @@ import subprocess
 import pandas as pd
 from datetime import datetime, timezone
 
-
 def run_subprocess(command, debug=False):
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     while True:

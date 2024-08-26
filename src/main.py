@@ -3,10 +3,10 @@ import os
 import json
 import shutil
 import argparse
-from functions import Logger
-from functions import verify_args, verify_file
-from scipy_calibrate import scipy_calibrate
-from pest_calibrate import pest_calibrate
+from lake_calibrator.functions import Logger
+from lake_calibrator.functions import verify_args, verify_file
+from lake_calibrator.scipy_calibrate import scipy_calibrate
+from lake_calibrator.pest_calibrate import pest_calibrate
 
 
 def calibrate(arguments):
