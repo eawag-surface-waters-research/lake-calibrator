@@ -144,6 +144,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
 
 def write_pest_ins_file(calibration_folder, calibration_options, simulation, observations, times, depths):
     combined_observations = []
+    depths_desc = sorted(depths, reverse=True)
     for objective_variable in calibration_options["objective_variables"]:
         obs_ids = [i for i in range(len(observations)) if observations[i]["parameter"] == objective_variable]
         if len(obs_ids) != 1:
@@ -157,7 +158,7 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                     if t in df.index:
                         strf = 'l1'
                         df_t = df.loc[t]
-                        for j, d in enumerate(depths):
+                        for j, d in enumerate(depths_desc):
                             if d in df_t['depth'].values:
                                 row = df_t[df_t['depth'] == d].iloc[0]
                                 strf = strf + ' @,@ !%s_%d_%d!' % (objective_variable, i, j)
@@ -175,6 +176,8 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
     return combined_observations
 
 def pest_output_files(calibration_folder):
+    if not os.path.exists(os.path.join(calibration_folder, "pest.par")):
+        raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
     df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, delim_whitespace=True)
     dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), delim_whitespace=True)
     dfe["Residual2*Weight"] = dfe["Weight"] * dfe["Residual"] ** 2
