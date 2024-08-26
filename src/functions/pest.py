@@ -3,12 +3,13 @@ import json
 import shutil
 import numpy as np
 import pandas as pd
-from .general import run_subprocess, parse_observation_file
-from .simstrat import set_simstrat_outputs
+from functions.general import run_subprocess, parse_observation_file
+from functions.simstrat import set_simstrat_outputs
 
 def pest_calibrate(args, log):
     log.info("Calibrating {} with PEST".format(args["simulation"]))
     pest_input_files(args, log)
+    exit()
     log.info("Running PEST")
     cmd = ("docker run -v /var/run/docker.sock:/var/run/docker.sock -v {}:/pest/calibrate --rm "
            "eawag/pest_hp:18.0.0 -f pest -a {} -p {}".format(os.path.abspath(args["calibration_folder"]),

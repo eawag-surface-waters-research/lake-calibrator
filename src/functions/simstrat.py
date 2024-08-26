@@ -4,7 +4,7 @@ import shutil
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-from .general import parse_observation_file, days_since_year
+from functions.general import parse_observation_file, days_since_year
 
 
 def edit_par_file(folder, parameter_names, parameter_values):

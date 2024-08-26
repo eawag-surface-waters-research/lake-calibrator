@@ -1,8 +1,8 @@
 import os
 import shutil
 from scipy.optimize import minimize
-from .simstrat import edit_par_file, copy_simstrat_inputs, simstrat_rms
-from .general import run_subprocess
+from functions.simstrat import edit_par_file, copy_simstrat_inputs, simstrat_rms
+from functions.general import run_subprocess
 
 iteration = 0
 run = 0
