@@ -27,7 +27,7 @@ def calibrator(arguments):
     else:
         raise ValueError("Unrecognised calibration framework: {}".format(arguments["calibration_framework"]))
     log.inputs("Outputs", results)
-    with open(os.path.join(args["calibration_folder"], "results.json"), "w") as f:
+    with open(os.path.join(arguments["calibration_folder"], "results.json"), "w") as f:
         json.dump(results, f, indent=4)
     return results
 
