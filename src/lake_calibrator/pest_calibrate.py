@@ -32,7 +32,10 @@ def pest_input_files(args, log):
     times, depths, observations = read_observation_data(args["calibration_options"], args["observations"])
 
     log.info("Creating PEST run file", indent=1)
-    write_pest_run_file(args["calibration_folder"], args["execute"])
+    docker_host_calibration_folder = os.path.abspath(args["calibration_folder"])
+    if "docker_host_calibration_folder" in args:
+        docker_host_calibration_folder = args["docker_host_calibration_folder"]
+    write_pest_run_file(args["calibration_folder"], docker_host_calibration_folder, args["execute"])
 
     log.info("Creating PEST .tpl file", indent=1)
     config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
@@ -73,13 +76,13 @@ def read_observation_data(calibration_options, observations):
     depths = sorted(set(depths))
     return times, depths, observations
 
-def write_pest_run_file(calibration_folder, execute):
+def write_pest_run_file(calibration_folder, docker_host_calibration_folder, execute):
     with open(os.path.join(calibration_folder, "run.sh"), 'w') as file:
         file.write('#!/bin/bash\n')
         file.write('dir="$(dirname "$(realpath "$0")")"\n')
         file.write('folder=$(basename "$(dirname "$(realpath "$0")")")\n')
         file.write('cp -r "/pest/calibrate/inputs"/* "$dir"/\n')
-        file.write(execute.format(calibration_folder=os.path.abspath(calibration_folder) + "/$folder"))
+        file.write(execute.format(calibration_folder=docker_host_calibration_folder + "/$folder"))
     os.chmod(os.path.join(calibration_folder, "run.sh"), 0o755)
 
 def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simulation, calibration_options, combined_observations):
