@@ -184,8 +184,17 @@ def pest_output_files(calibration_folder):
     df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, delim_whitespace=True)
     dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), delim_whitespace=True)
     dfe["Residual2*Weight"] = dfe["Weight"] * dfe["Residual"] ** 2
-    error = (dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5
+    dfe["depth_id"] = dfe['Name'].str.split('_').str[-1].astype(int)
+    dfb = dfe[dfe['depth_id'] == dfe['depth_id'].min()]
+    dfs = dfe[dfe['depth_id'] == dfe['depth_id'].max()]
+    overall = (dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5
+    bottom = (dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5
+    surface = (dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5
     return {
         "parameters": dict(zip(df.iloc[:, 0], df.iloc[:, 1])),
-        "error": error
+        "error": {
+            "overall": overall,
+            "surface": surface,
+            "bottom": bottom
+        }
     }
