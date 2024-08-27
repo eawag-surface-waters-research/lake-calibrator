@@ -13,8 +13,10 @@ def pest_calibrate(args, log):
         log.info("Not running PEST, existing after producing inputs.")
         return {}
     log.info("Running PEST")
+    if "docker_host_calibration_folder" not in args:
+        args["docker_host_calibration_folder"] = os.path.abspath(args["calibration_folder"])
     cmd = ("docker run -v /var/run/docker.sock:/var/run/docker.sock -v {}:/pest/calibrate --rm "
-           "eawag/pest_hp:18.0.0 -f pest -a {} -p {}".format(os.path.abspath(args["calibration_folder"]),
+           "eawag/pest_hp:18.0.0 -f pest -a {} -p {}".format(args["docker_host_calibration_folder"],
                                                                  args["calibration_options"]["agents"],
                                                                  args["calibration_options"]["port"]))
     log.info(cmd, indent=1)
@@ -32,10 +34,7 @@ def pest_input_files(args, log):
     times, depths, observations = read_observation_data(args["calibration_options"], args["observations"])
 
     log.info("Creating PEST run file", indent=1)
-    docker_host_calibration_folder = os.path.abspath(args["calibration_folder"])
-    if "docker_host_calibration_folder" in args:
-        docker_host_calibration_folder = args["docker_host_calibration_folder"]
-    write_pest_run_file(args["calibration_folder"], docker_host_calibration_folder, args["execute"])
+    write_pest_run_file(args["calibration_folder"], args["docker_host_calibration_folder"], args["execute"])
 
     log.info("Creating PEST .tpl file", indent=1)
     config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
