@@ -3,8 +3,11 @@ import json
 import shutil
 import numpy as np
 import pandas as pd
-from .functions import run_subprocess, parse_observation_file, list_from_selection
-from .simstrat import set_simstrat_outputs
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
+from .functions import run_subprocess, parse_observation_file, list_from_selection, datetime_from_days
+from .simstrat import set_simstrat_outputs, simstrat_max_depth
 
 def pest_calibrate(args, log):
     log.info("Calibrating {} with PEST".format(args["simulation"]))
@@ -30,14 +33,21 @@ def pest_input_files(args, log):
     log.info("Copying model input files", indent=1)
     copy_model_inputs(args["calibration_folder"], args["simulation_folder"])
 
+    log.info("Creating PEST .tpl file", indent=1)
+    config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
+
+    if args["simulation"] == "simstrat":
+        start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(years=1)
+        end_date = datetime_from_days(config["Simulation"]["End d"], config["Simulation"]["Reference year"])
+        max_depth = simstrat_max_depth(args["simulation_folder"], config["Input"]["Morphology"])
+    else:
+        raise ValueError("Input files not implemented for {}".format(args["simulation"]))
+
     log.info("Reading observation data", indent=1)
-    times, depths, observations = read_observation_data(args["calibration_options"], args["observations"])
+    times, depths, observations = read_observation_data(args["calibration_options"], args["observations"], start_date, end_date, max_depth)
 
     log.info("Creating PEST run file", indent=1)
     write_pest_run_file(args["calibration_folder"], args["docker_host_calibration_folder"], args["execute"])
-
-    log.info("Creating PEST .tpl file", indent=1)
-    config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
 
     if args["simulation"] == "simstrat":
         log.info("Setting Simstrat output files", indent=1)
@@ -59,7 +69,7 @@ def copy_model_inputs(calibration_folder, simulation_folder):
         elif item != "Results":
             shutil.copytree(file, os.path.join(output_folder, item))
 
-def read_observation_data(calibration_options, observations):
+def read_observation_data(calibration_options, observations, start_date, end_date, max_depth):
     times = []
     depths = []
     for objective_variable in calibration_options["objective_variables"]:
@@ -67,7 +77,9 @@ def read_observation_data(calibration_options, observations):
         if len(obs_ids) != 1:
             raise ValueError("Cannot find {} observations to calculate residuals".format(objective_variable))
         obs = observations[obs_ids[0]]
-        df = parse_observation_file(obs["file"], obs["start"], obs["end"])
+        start = max(start_date, datetime.fromisoformat(obs["start"]))
+        end = min(end_date, datetime.fromisoformat(obs["end"]))
+        df = parse_observation_file(obs["file"], start, end, max_depth)
         times.extend(df.index.tolist())
         depths.extend([d for d in df["depth"].tolist() if not np.isnan(d)])
         observations[obs_ids[0]]["df"] = df

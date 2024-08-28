@@ -2,7 +2,8 @@ import os
 import traceback
 import subprocess
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
 
 def run_subprocess(command, debug=False):
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -21,14 +22,22 @@ def run_subprocess(command, debug=False):
         error_message += f"Standard Error: {stderr}\n"
         raise RuntimeError(error_message)
 
-def parse_observation_file(file, start, end):
+def parse_observation_file(file, start, end, max_depth):
     df = pd.read_csv(file)
     df['time'] = pd.to_datetime(df['time'])
     df = df.set_index('time')
     df = df.sort_index()
     df = df.loc[start:end]
+    df = df.drop_duplicates()
+    df["depth"] = df['depth'].abs()
+    df = df[df['depth'] <= max_depth]
+    if len(df) == 0:
+        raise ValueError("No valid observations available")
     return df
 
+def datetime_from_days(days, year):
+    reference_date = datetime(year, 1, 1, tzinfo=timezone.utc)
+    return reference_date + timedelta(days=days)
 
 def days_since_year(date, year):
     reference_date = datetime(year, 1, 1, tzinfo=timezone.utc)

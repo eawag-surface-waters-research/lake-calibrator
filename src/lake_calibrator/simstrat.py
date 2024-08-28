@@ -93,4 +93,6 @@ def set_simstrat_outputs(calibration_folder, times, depths, reference_year):
         for t in times:
             file.write("%.4f\n" % days_since_year(t, reference_year))
 
-
+def simstrat_max_depth(simulation_folder, bathymetry_file):
+    df = pd.read_csv(os.path.join(simulation_folder, bathymetry_file), skiprows=1, delim_whitespace=True, header=None)
+    return abs(df.iloc[:, 0].min())
