@@ -3,18 +3,18 @@ import json
 import shutil
 import numpy as np
 import pandas as pd
-from .functions import run_subprocess, parse_observation_file
+from .functions import run_subprocess, parse_observation_file, list_from_selection
 from .simstrat import set_simstrat_outputs
 
 def pest_calibrate(args, log):
     log.info("Calibrating {} with PEST".format(args["simulation"]))
+    if "docker_host_calibration_folder" not in args:
+        args["docker_host_calibration_folder"] = os.path.abspath(args["calibration_folder"])
     pest_input_files(args, log)
     if "run" in args["calibration_options"] and not args["calibration_options"]["run"]:
         log.info("Not running PEST, existing after producing inputs.")
         return {}
     log.info("Running PEST")
-    if "docker_host_calibration_folder" not in args:
-        args["docker_host_calibration_folder"] = os.path.abspath(args["calibration_folder"])
     cmd = ("docker run -v /var/run/docker.sock:/var/run/docker.sock -v {}:/pest/calibrate --rm "
            "eawag/pest_hp:18.0.0 -f pest -a {} -p {}".format(args["docker_host_calibration_folder"],
                                                                  args["calibration_options"]["agents"],
@@ -164,8 +164,11 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                         strf = 'l1'
                         df_t = df.loc[t]
                         for j, d in enumerate(depths_desc):
-                            if d in df_t['depth'].values:
-                                row = df_t[df_t['depth'] == d].iloc[0]
+                            if d in list_from_selection(df_t['depth']):
+                                if isinstance(df_t, pd.DataFrame):
+                                    row = df_t[df_t['depth'] == d].iloc[0]
+                                else:
+                                    row = df_t
                                 strf = strf + ' @,@ !%s_%d_%d!' % (objective_variable, i, j)
                                 combined_observations.append({
                                     'id': f"{objective_variable}_{i}_{j}",

@@ -35,6 +35,12 @@ def days_since_year(date, year):
     delta = date - reference_date
     return delta.total_seconds() / 86400.0
 
+def list_from_selection(selection):
+    if isinstance(selection, pd.Series):
+        return selection.values
+    else:
+        return [selection]
+
 class Logger(object):
     def __init__(self, path=False, time=True):
         if path != False:
