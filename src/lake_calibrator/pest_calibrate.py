@@ -13,7 +13,7 @@ def pest_calibrate(args, log):
     log.info("Calibrating {} with PEST".format(args["simulation"]))
     if "docker_host_calibration_folder" not in args:
         args["docker_host_calibration_folder"] = os.path.abspath(args["calibration_folder"])
-    pest_input_files(args, log)
+    observations = pest_input_files(args, log)
     if "run" in args["calibration_options"] and not args["calibration_options"]["run"]:
         log.info("Not running PEST, existing after producing inputs.")
         return {}
@@ -27,6 +27,7 @@ def pest_calibrate(args, log):
     run_subprocess(cmd, debug=debug)
     log.info("PEST completed, reading output files.")
     result = pest_output_files(args["calibration_folder"])
+    result["observations"] = observations
     return result
 
 def pest_input_files(args, log):
@@ -58,6 +59,11 @@ def pest_input_files(args, log):
 
     log.info("Creating PEST .pst file", indent=1)
     write_pest_pst_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"], args["calibration_options"], combined_observations)
+
+    observations_summary = {}
+    for obv in observations:
+        observations_summary[obv["parameter"]] = {"times": len(set(obv["df"].index)), "depths": len(set(obv["df"]["depth"])), "total": len(obv["df"])}
+    return observations_summary
 
 def copy_model_inputs(calibration_folder, simulation_folder):
     output_folder = os.path.join(calibration_folder, "inputs")
