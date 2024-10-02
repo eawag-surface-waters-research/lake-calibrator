@@ -1,0 +1,34 @@
+{
+  "simulation_folder": "C:\\Users\\user\\Documents\\git\\operational-simstrat\\runs\\lake_name",
+  "calibration_folder": "runs\\lake_name",
+  "observations": [{
+    "file": "observations/lake_name/temperature.csv",
+    "parameter": "temperature",
+    "unit": "degC",
+    "start": "1982-01-01T01:00:00+00:00",
+    "end": "2022-01-01T01:00:00+00:00"
+  }],
+  "simulation": "simstrat",
+  "execute": "C:\\Users\\user\\Documents\\software\\simstrat_win_304.exe {calibration_folder}\\Calibration.par",
+  "parameters": [
+    {"name": "a_seiche", "initial":  0.016499202, "min": 1e-5, "max": 0.5, "adjust": "relative"},
+    {"name": "f_wind", "initial":  1.2161339, "min": 0.10, "max": 1.75},
+    {"name": "p_lw", "initial":  0.891907364, "min": 0.80, "max": 1.20},
+    {"name": "snow_temp", "initial":  2.0, "min": 0.50, "max": 10.00}
+  ],
+  "calibration_framework": "PEST",
+  "calibration_options": {
+    "objective_function": "rms",
+    "run": true,
+    "docker": false,
+    "local_compilation_pest": "C:\\Users\\user\\Documents\\software\\pest17\\pest_hp.exe",
+    "local_compilation_agent": "C:\\Users\\user\\Documents\\software\\pest17\\agent_hp.exe",
+    "objective_variables": ["temperature"],
+    "objective_weights": [1],
+    "time_mode": "nearest",
+    "depth_mode": "linear_interpolation",
+    "agents": 5,
+    "port": 4005,
+    "debug": false
+  }
+}

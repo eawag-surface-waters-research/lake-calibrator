@@ -1,6 +1,11 @@
 import os
 import json
+import time
 import shutil
+import socket
+import platform
+import subprocess
+
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -18,13 +23,16 @@ def pest_calibrate(args, log):
         log.info("Not running PEST, existing after producing inputs.")
         return {}
     log.info("Running PEST")
-    cmd = ("docker run -v /var/run/docker.sock:/var/run/docker.sock -v {}:/pest/calibrate --rm "
-           "eawag/pest_hp:18.0.0 -f pest -a {} -p {}".format(args["docker_host_calibration_folder"],
-                                                                 args["calibration_options"]["agents"],
-                                                                 args["calibration_options"]["port"]))
-    log.info(cmd, indent=1)
-    debug = "debug" in args["calibration_options"] and args["calibration_options"]["debug"]
-    run_subprocess(cmd, debug=debug)
+    if "docker" in args["calibration_options"] and not args["calibration_options"]["docker"]:
+        pest_local(args["calibration_options"], args["calibration_folder"], args["execute"])
+    else:
+        cmd = ("docker run -v /var/run/docker.sock:/var/run/docker.sock -v {}:/pest/calibrate --rm "
+               "eawag/pest_hp:18.0.0 -f pest -a {} -p {}".format(args["docker_host_calibration_folder"],
+                                                                     args["calibration_options"]["agents"],
+                                                                     args["calibration_options"]["port"]))
+        log.info(cmd, indent=1)
+        debug = "debug" in args["calibration_options"] and args["calibration_options"]["debug"]
+        run_subprocess(cmd, debug=debug)
     log.info("PEST completed, reading output files.")
     result = pest_output_files(args["calibration_folder"])
     result["observations"] = observations
@@ -48,7 +56,7 @@ def pest_input_files(args, log):
     times, depths, observations = read_observation_data(args["calibration_options"], args["observations"], start_date, end_date, max_depth)
 
     log.info("Creating PEST run file", indent=1)
-    write_pest_run_file(args["calibration_folder"], args["docker_host_calibration_folder"], args["execute"])
+    run_file = write_pest_run_file(args["calibration_folder"], args["docker_host_calibration_folder"], args["execute"], args["calibration_options"])
 
     if args["simulation"] == "simstrat":
         log.info("Setting Simstrat output files", indent=1)
@@ -58,7 +66,7 @@ def pest_input_files(args, log):
     combined_observations = write_pest_ins_file(args["calibration_folder"], args["calibration_options"], args["simulation"], observations, times, depths)
 
     log.info("Creating PEST .pst file", indent=1)
-    write_pest_pst_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"], args["calibration_options"], combined_observations)
+    write_pest_pst_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"], args["calibration_options"], combined_observations, run_file)
 
     observations_summary = {}
     for obv in observations:
@@ -93,16 +101,21 @@ def read_observation_data(calibration_options, observations, start_date, end_dat
     depths = sorted(set(depths))
     return times, depths, observations
 
-def write_pest_run_file(calibration_folder, docker_host_calibration_folder, execute):
-    with open(os.path.join(calibration_folder, "run.sh"), 'w') as file:
-        file.write('#!/bin/bash\n')
-        file.write('dir="$(dirname "$(realpath "$0")")"\n')
-        file.write('folder=$(basename "$(dirname "$(realpath "$0")")")\n')
-        file.write('cp -r "/pest/calibrate/inputs"/* "$dir"/\n')
-        file.write(execute.format(calibration_folder=docker_host_calibration_folder + "/$folder"))
-    os.chmod(os.path.join(calibration_folder, "run.sh"), 0o755)
+def write_pest_run_file(calibration_folder, docker_host_calibration_folder, execute, calibration_options):
+    if "docker" in calibration_options and not calibration_options["docker"]:
+        if platform.system() != 'Linux':
+            return "run.bat"
+    else:
+        with open(os.path.join(calibration_folder, "run.sh"), 'w') as file:
+            file.write('#!/bin/bash\n')
+            file.write('dir="$(dirname "$(realpath "$0")")"\n')
+            file.write('folder=$(basename "$(dirname "$(realpath "$0")")")\n')
+            file.write('cp -r "/pest/calibrate/inputs"/* "$dir"/\n')
+            file.write(execute.format(calibration_folder=docker_host_calibration_folder + "/$folder"))
+        os.chmod(os.path.join(calibration_folder, "run.sh"), 0o755)
+    return "./run.sh"
 
-def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simulation, calibration_options, combined_observations):
+def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simulation, calibration_options, combined_observations, run_file):
     if simulation == "simstrat":
         file_dict = {
             "temperature": "Results/T_out.dat"
@@ -136,7 +149,7 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
         for index, row in combined_observations.iterrows():
             file.write('%-20s\t%12.4e\t%f\t%s\n' % (row["id"], row["value"], row["weight"], row["id"].split("_")[0]))
         file.write('* model command line\n')
-        file.write('./run.sh\n')
+        file.write("{}\n".format(run_file))
         file.write('* model input/output\n')
         file.write('pest.tpl	{}\n'.format(par_file))
         for objective_variable in calibration_options["objective_variables"]:
@@ -221,3 +234,60 @@ def pest_output_files(calibration_folder):
             "bottom": bottom
         }
     }
+
+def pest_local_cleanup():
+    if platform.system() == 'Linux':
+        try:
+            process_list = subprocess.check_output(['ps', '-e', '-o', 'pid,comm'], universal_newlines=True).splitlines()[1:]
+        except subprocess.CalledProcessError:
+            process_list = []
+        for process in process_list:
+            try:
+                process_id, process_name = process.split(None, 1)
+                if "pest_hp" in process_name or "agent_hp" in process_name:
+                    os.kill(int(process_id), 9)
+                    print(f"Killed {process_name} process with PID {process_id}")
+                    time.sleep(1)
+            except (ValueError, PermissionError, ProcessLookupError):
+                continue
+    else:
+        os.system('taskkill /F /IM pest_hp.exe /T 2>nul')
+
+def pest_local(calibration_options, calibration_folder, execute):
+    if "local_compilation_pest" not in calibration_options:
+        raise ValueError("local_compilation_pest must be defined in calibration_options to run PEST without docker")
+    if "local_compilation_agent" not in calibration_options:
+        raise ValueError("local_compilation_agent must be defined in calibration_options to run PEST without docker")
+    pest_local_cleanup()
+    proc = []
+    ip_address = socket.gethostbyname(socket.gethostname())
+    calibration_folder = os.path.abspath(calibration_folder)
+    cmd = "{} pest.pst /h :{}".format(calibration_options["local_compilation_pest"],
+                                      calibration_options["port"])
+    p = subprocess.Popen(cmd, cwd=calibration_folder)
+    proc.append(p)
+    for i in range(calibration_options["agents"]):
+        agent_dir = os.path.join(calibration_folder, f"agent{i}")
+        os.makedirs(agent_dir, exist_ok=True)
+        for file in os.listdir(calibration_folder):
+            if file.endswith((".pst", ".tpl", ".ins", ".sh")):
+                try:
+                    shutil.copy(os.path.join(calibration_folder, file), agent_dir)
+                except FileNotFoundError:
+                    continue
+        if platform.system() == 'Linux':
+            with open(os.path.join(agent_dir, "run.sh"), 'w') as file:
+                file.write('#!/bin/bash\n')
+                file.write('cp -r "{}" "{}"/\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
+                file.write(execute.format(calibration_folder=agent_dir))
+        else:
+            with open(os.path.join(agent_dir, "run.bat"), 'w') as file:
+                file.write(
+                    'xcopy "{}" "{}" /E /I /Y\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
+                file.write(execute.format(calibration_folder=agent_dir))
+        cmd = "{} pest.pst /h {}:{}".format(calibration_options["local_compilation_agent"], ip_address,
+                                            calibration_options["port"])
+        p = subprocess.Popen(cmd, cwd=agent_dir)
+        proc.append(p)
+    for p in proc:
+        out = p.wait()

@@ -17,6 +17,7 @@ git clone git@github.com:eawag-surface-waters-research/lake-calibrator.git
 cd lake-calibrator
 pip install requirements.txt
 ```
+It is suggested to install the python packages in a virtual environment
 
 ## Usage
 
@@ -27,6 +28,11 @@ python src/calibrate.py <path>
 ```
 Where **path** is the path of the input arguments file.
 **path** should either be absolute or relative to the directory from which you run the script.
+
+For example:
+```commandline
+python src/calibrate.py args/simstrat_pest_example.json
+```
 
 ### Script
 
