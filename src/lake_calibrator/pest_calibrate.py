@@ -5,6 +5,7 @@ import shutil
 import socket
 import platform
 import subprocess
+import f90nml
 
 import numpy as np
 import pandas as pd
@@ -88,7 +89,7 @@ def read_observation_data(calibration_options, observations, start_date, end_dat
     depths = []
     for objective_variable in calibration_options["objective_variables"]:
         obs_ids = [i for i in range(len(observations)) if observations[i]["parameter"] == objective_variable]
-        if len(obs_ids) != 1:
+        if len(obs_ids) != 1: #loose this restriction
             raise ValueError("Cannot find {} observations to calculate residuals".format(objective_variable))
         obs = observations[obs_ids[0]]
         start = max(start_date, datetime.fromisoformat(obs["start"]))
@@ -118,7 +119,8 @@ def write_pest_run_file(calibration_folder, docker_host_calibration_folder, exec
 def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simulation, calibration_options, combined_observations, run_file):
     if simulation == "simstrat":
         file_dict = {
-            "temperature": "Results/T_out.dat"
+            # "temperature": "Results/T_out.dat" #here needs modification
+            "oxygen": "Results/OXY_oxy_out.dat"
         }
         par_file = "Calibration.par"
 
@@ -160,6 +162,37 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
 
 def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simulation):
     if simulation == "simstrat":
+        #par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
+        par_files0 = [file for file in os.listdir(simulation_folder) if file == "aed2_pars.nml"]
+        if len(par_files0) != 1:
+            raise ValueError("{} PAR files located in simulation folder".format(len(par_files0)))
+        with open(os.path.join(simulation_folder, par_files0[0]), 'r') as file:
+            config0 = f90nml.read(file)
+        for parameter in parameters:
+            config0["aed2_oxygen"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+        #config["Simulation"]["Continue from last snapshot"] = False
+        file_path = os.path.join(calibration_folder, "pest.tpl")
+        f90nml.write(config0, file_path)
+        #config_text = config_text.replace('$$"', '#"').replace('"$$', '"#')
+        #config_text = config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
+    else:
+        raise ValueError("write_pest_tpl_file not implemented for simulation: {}".format(simulation))
+    #with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
+    with open(file_path, 'r') as file:
+        namelist_content = file.read()
+        prefix = 'ptf #\n'
+    with open(file_path, 'w') as file:
+        file.write(prefix)
+        file.write(namelist_content)
+    with open(file_path, 'r') as file:
+        config_text = file.read()
+        config_text = config_text.replace("'$$", "#").replace("$$'", "#")
+
+    with open(file_path, 'w') as file:
+        file.write(config_text)
+    return config0
+
+    if simulation == "simstrat":
         par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
         if len(par_files) != 1:
             raise ValueError("{} PAR files located in simulation folder".format(len(par_files)))
@@ -168,14 +201,6 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
         for parameter in parameters:
             config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
         config["Simulation"]["Continue from last snapshot"] = False
-        config_text = json.dumps(config)
-        config_text = config_text.replace('$$"', '#"').replace('"$$', '"#')
-        config_text = config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
-    else:
-        raise ValueError("write_pest_tpl_file not implemented for simulation: {}".format(simulation))
-    with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
-        file.write('ptf #\n')
-        file.write(config_text)
     return config
 
 def write_pest_ins_file(calibration_folder, calibration_options, simulation, observations, times, depths):
