@@ -45,6 +45,7 @@ def pest_input_files(args, log):
 
     log.info("Creating PEST .tpl file", indent=1)
     config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
+    print(config)
 
     if args["simulation"] == "simstrat":
         start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(years=1)
@@ -123,6 +124,7 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
             "oxygen": "Results/OXY_oxy_out.dat"
         }
         par_file = "Calibration.par"
+        #par_file = "Calibration.nml"
 
     with open(os.path.join(calibration_folder, "pest.pst"), 'w') as file:
         file.write('pcf\n')
@@ -168,6 +170,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
             raise ValueError("{} PAR files located in simulation folder".format(len(par_files0)))
         with open(os.path.join(simulation_folder, par_files0[0]), 'r') as file:
             config0 = f90nml.read(file)
+            #print(config0)
         for parameter in parameters:
             config0["aed2_oxygen"][parameter["name"]] = '$$%10s$$' % parameter["name"]
         #config["Simulation"]["Continue from last snapshot"] = False
@@ -184,15 +187,16 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
     with open(file_path, 'w') as file:
         file.write(prefix)
         file.write(namelist_content)
+        print(namelist_content)
     with open(file_path, 'r') as file:
         config_text = file.read()
         config_text = config_text.replace("'$$", "#").replace("$$'", "#")
 
     with open(file_path, 'w') as file:
         file.write(config_text)
-    return config0
+        #print (config0)
 
-    if simulation == "simstrat":
+    #if simulation == "simstrat":
         par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
         if len(par_files) != 1:
             raise ValueError("{} PAR files located in simulation folder".format(len(par_files)))
@@ -201,6 +205,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
         for parameter in parameters:
             config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
         config["Simulation"]["Continue from last snapshot"] = False
+        print(config)
     return config
 
 def write_pest_ins_file(calibration_folder, calibration_options, simulation, observations, times, depths):

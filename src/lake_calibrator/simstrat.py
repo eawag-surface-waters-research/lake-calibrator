@@ -31,8 +31,8 @@ def edit_par_file(folder, parameter_names, parameter_values):
     for index, parameter in enumerate(parameter_names):
         #data["ModelParameters"][parameter] = parameter_values[index]
         data["aed2_oxygen"][parameter] = parameter_values[index]
-    with open(par_file, "w") as f:
-        json.dump(data, f, indent=4) # I don't understand which document is par_file written to
+    #with open(par_file, "w") as f:
+        #json.dump(data, f, indent=4) # I don't understand which document is par_file written to
     return reference_year
 
 
