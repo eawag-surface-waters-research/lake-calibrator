@@ -20,7 +20,7 @@ def edit_par_file(folder, parameter_names, parameter_values):
 
     reference_year = data0["Simulation"]["Reference year"]
 
-    par_files = [f for f in os.listdir(folder) if f == "aed2_pars.nml"]
+    par_files = [f for f in os.listdir(folder) if f.endswith(".nml")]
     if len(par_files) != 1:
         raise ValueError("Could not locate par file")
     par_file = os.path.join(folder, par_files[0])

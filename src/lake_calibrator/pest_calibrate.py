@@ -120,11 +120,11 @@ def write_pest_run_file(calibration_folder, docker_host_calibration_folder, exec
 def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simulation, calibration_options, combined_observations, run_file):
     if simulation == "simstrat":
         file_dict = {
-            # "temperature": "Results/T_out.dat" #here needs modification
+            #"temperature": "Results/T_out.dat" #here needs modification
             "oxygen": "Results/OXY_oxy_out.dat"
         }
-        par_file = "Calibration.par"
-        #par_file = "Calibration.nml"
+        #par_file = "Calibration.par"
+        par_file = "Calibration.nml"
 
     with open(os.path.join(calibration_folder, "pest.pst"), 'w') as file:
         file.write('pcf\n')
