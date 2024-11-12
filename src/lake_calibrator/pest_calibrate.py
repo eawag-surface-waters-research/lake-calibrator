@@ -111,7 +111,8 @@ def write_pest_run_file(calibration_folder, docker_host_calibration_folder, exec
             file.write('dir="$(dirname "$(realpath "$0")")"\n')
             file.write('folder=$(basename "$(dirname "$(realpath "$0")")")\n')
             file.write('cp -r "/pest/calibrate/inputs"/* "$dir"/\n')
-            file.write(execute.format(calibration_folder=docker_host_calibration_folder + "/$folder"))
+            file.write(execute.format(calibration_folder=docker_host_calibration_folder + "/$folder") + "\n")
+            file.write('echo "Run Complete"')
         os.chmod(os.path.join(calibration_folder, "run.sh"), 0o755)
     return "./run.sh"
 
@@ -147,7 +148,7 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
             file.write('{}\n'.format(objective_variable))
         file.write('* observation data\n')
         for index, row in combined_observations.iterrows():
-            file.write('%-20s\t%12.4e\t%f\t%s\n' % (row["id"], row["value"], row["weight"], row["id"].split("_")[0]))
+            file.write('%-12s\t%12.4e\t%f\t%s\n' % (row["id"], row["value"], row["weight"], row["group"]))
         file.write('* model command line\n')
         file.write("{}\n".format(run_file))
         file.write('* model input/output\n')
@@ -200,18 +201,21 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                                     row = df_t[df_t['depth'] == d].iloc[0]
                                 else:
                                     row = df_t
-                                strf = strf + ' @,@ !%s_%d_%d!' % (objective_variable, i, j)
+                                strf = strf + ' @,@ !%s_%d_%d!' % (objective_variable[0], i, j)
                                 combined_observations.append({
-                                    'id': f"{objective_variable}_{i}_{j}",
+                                    'id': f"{objective_variable[0]}_{i}_{j}",
                                     'value': row["value"],
-                                    'weight': row["weight"]
+                                    'weight': row["weight"],
+                                    'group': objective_variable
                                 })
                             else:
                                 strf = strf + ' @,@'
+                        if len(strf) > 2000:
+                            raise ValueError("Instruction file .ins: line exceeds 2000 characters")
                         file.write(strf + '\n')
             else:
                 raise ValueError("write_pest_ins_file not implemented for simulation: {}".format(simulation))
-    combined_observations = pd.DataFrame(combined_observations, columns=['id', 'value', 'weight'])
+    combined_observations = pd.DataFrame(combined_observations, columns=['id', 'value', 'weight', 'group'])
     return combined_observations
 
 def pest_output_files(calibration_folder):
