@@ -25,10 +25,10 @@ def run_subprocess(command, debug=False):
 def parse_observation_file(file, start, end, max_depth):
     df = pd.read_csv(file)
     df['time'] = pd.to_datetime(df['time'])
+    df = df.drop_duplicates()
     df = df.set_index('time')
     df = df.sort_index()
     df = df.loc[start:end]
-    df = df.drop_duplicates()
     df["depth"] = df['depth'].abs()
     df = df[df['depth'] <= max_depth]
     if len(df) == 0:

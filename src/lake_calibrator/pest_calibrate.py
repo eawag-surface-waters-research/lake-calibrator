@@ -211,7 +211,7 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                             else:
                                 strf = strf + ' @,@'
                         if len(strf) > 2000:
-                            raise ValueError("Instruction file .ins: line exceeds 2000 characters")
+                            raise ValueError("Instruction file .ins: line exceeds 2000 characters - reduce the number of depths in the observations file.")
                         file.write(strf + '\n')
             else:
                 raise ValueError("write_pest_ins_file not implemented for simulation: {}".format(simulation))
