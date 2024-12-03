@@ -284,6 +284,7 @@ def pest_local(calibration_options, calibration_folder, execute):
                 file.write('#!/bin/bash\n')
                 file.write('cp -r "{}" "{}"/\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
+            os.chmod(os.path.join(agent_dir, "run.sh"), 0o755)
         else:
             with open(os.path.join(agent_dir, "run.bat"), 'w') as file:
                 file.write(
