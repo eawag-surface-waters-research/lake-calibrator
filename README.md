@@ -31,7 +31,7 @@ Where **path** is the path of the input arguments file.
 
 For example:
 ```commandline
-python src/calibrate.py args/simstrat_pest_example.json
+python src/calibrate.py args/simstrat_pest_windows_example.json
 ```
 
 ### Script
