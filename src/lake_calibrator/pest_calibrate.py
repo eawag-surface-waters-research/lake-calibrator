@@ -99,6 +99,12 @@ def read_observation_data(calibration_options, observations, start_date, end_dat
         observations[obs_ids[0]]["df"] = df
     times = sorted(set(times))
     depths = sorted(set(depths))
+    if len(depths) == 1:
+        print("WARNING: Only one depth in observations, only outputting a single depth can lead to unintended model outputs. Adding additional depth that is not calibrated on.")
+        if depths[0] == 0:
+            depths.append(1.0)
+        else:
+            depths.insert(0, depths[0]/2)
     return times, depths, observations
 
 def write_pest_run_file(calibration_folder, docker_host_calibration_folder, execute, calibration_options):
