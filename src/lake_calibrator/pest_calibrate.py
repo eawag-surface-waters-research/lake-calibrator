@@ -226,6 +226,11 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
     combined_observations = pd.DataFrame(combined_observations, columns=['id', 'value', 'weight', 'group'])
     return combined_observations
 
+
+def weighted_rms(g):
+    return np.sqrt(g["Residual2*Weight"].sum() / g["Weight"].sum())
+
+
 def pest_output_files(calibration_folder):
     if not os.path.exists(os.path.join(calibration_folder, "pest.par")):
         raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
@@ -238,7 +243,8 @@ def pest_output_files(calibration_folder):
     overall = (dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5
     bottom = (dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5
     surface = (dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5
-    return {
+
+    out = {
         "parameters": dict(zip(df.iloc[:, 0], df.iloc[:, 1])),
         "error": {
             "overall": overall,
@@ -246,6 +252,22 @@ def pest_output_files(calibration_folder):
             "bottom": bottom
         }
     }
+
+    try:
+        dfd = dfe.groupby("depth_id").apply(
+            lambda g: pd.Series({
+                "rmse": weighted_rms(g),
+                "count": len(g)
+            })).reset_index()
+        result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
+        depths = np.abs(np.loadtxt(result_file, delimiter=",", max_rows=1, dtype=str)[1:].astype(float))
+        dfd["depth_id"] = depths
+        dfd.columns = ["depth", "rmse", "count"]
+        out["error"]["by_depth"] = dfd.to_dict(orient='list')
+    except:
+        print("Failed to extract RMSE error per depth")
+
+    return out
 
 def pest_local_cleanup():
     if platform.system() == 'Linux':
