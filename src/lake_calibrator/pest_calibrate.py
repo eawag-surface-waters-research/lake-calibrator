@@ -173,7 +173,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
     if simulation == "simstrat":
         par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
         if len(par_files) != 1:
-            raise ValueError("{} PAR files located in simulation folder".format(len(par_files)))
+            raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(par_files)))
         if par_files[0] == "Calibration.par":
             raise ValueError("PAR file must not be called Calibration.par, this will cause PEST to fail.")
         with open(os.path.join(simulation_folder, par_files[0]), 'r') as file:

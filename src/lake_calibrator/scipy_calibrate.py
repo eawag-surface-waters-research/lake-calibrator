@@ -14,8 +14,13 @@ def scipy_calibrate(args, log):
     bounds = tuple(tuple([parameter["min"], parameter["max"]]) for parameter in args["parameters"])
     parameter_names = [parameter["name"] for parameter in args["parameters"]]
 
+    if "Calibration.par" not in args["execute"]:
+        raise ValueError('Execute command in argument file should contain "Calibration.par" NOT the name of your par file.')
+
     if args["simulation"] == "simstrat":
         fun = simstrat304_iterator
+    else:
+        raise ValueError("Not implemented for {}".format(args["simulation"]))
 
     if args["calibration_options"]["method"] == "Nelder-Mead":
         options = {
@@ -24,6 +29,8 @@ def scipy_calibrate(args, log):
             "fatol": args["calibration_options"]["fatol"],
             "xatol": args["calibration_options"]["xatol"]
         }
+    else:
+        raise ValueError("Not implemented for {}".format(args["calibration_options"]["method"]))
 
     def iteration_information(p):
         global iteration

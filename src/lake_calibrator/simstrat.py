@@ -9,16 +9,21 @@ from .functions import parse_observation_file, days_since_year
 
 def edit_par_file(folder, parameter_names, parameter_values):
     par_files = [f for f in os.listdir(folder) if f.endswith(".par")]
-    if len(par_files) != 1:
-        raise ValueError("Could not locate par file")
     par_file = os.path.join(folder, par_files[0])
     with open(par_file) as f:
         data = json.load(f)
     reference_year = data["Simulation"]["Reference year"]
-    if data["Output"]["Depths"] != "z_out.dat":
-        raise ValueError('Simstrat PAR file - Output Depths must be set to "z_out.dat"')
-    if data["Output"]["Times"] != "t_out.dat":
-        raise ValueError('Simstrat PAR file - Output Times must be set to "t_out.dat"')
+
+    data["Output"]["Depths"] = "z_out.dat"
+    data["Output"]["Times"] = "t_out.dat"
+    data["Output"]["All"] = False
+
+    data["Simulation"]["DisplaySimulation"] = 0
+    data["Simulation"]["Continue from last snapshot"] = False
+    data["Simulation"]["Show progress bar"] = False
+    data["Simulation"]["Save text restart"] = False
+    data["Simulation"]["Use text restart"] = False
+
     for index, parameter in enumerate(parameter_names):
         data["ModelParameters"][parameter] = parameter_values[index]
     with open(par_file, "w") as f:
@@ -30,7 +35,15 @@ def copy_simstrat_inputs(src, dst):
     if os.path.exists(dst):
         shutil.rmtree(dst)
     os.makedirs(dst)
+    par_files = [f for f in os.listdir(src) if f.endswith(".par")]
+    if len(par_files) != 1:
+        raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(par_files)))
+    if par_files[0] == "Calibration.par":
+        raise ValueError("PAR file must not be called Calibration.par")
+    shutil.copy2(os.path.join(src, par_files[0]), os.path.join(dst, "Calibration.par"))
     for item in os.listdir(src):
+        if item.endswith(".par"):
+            continue
         s = os.path.join(src, item)
         d = os.path.join(dst, item)
         if os.path.isdir(s):

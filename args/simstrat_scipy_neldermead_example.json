@@ -9,7 +9,7 @@
     "end": "2022-01-01T01:00:00+00:00"
   }],
   "simulation": "simstrat",
-  "execute": "docker run --rm --user $(id -u):$(id -g) -v {calibration_folder}:/simstrat/run eawag/simstrat:3.0.4 Settings.par",
+  "execute": "docker run --rm --user $(id -u):$(id -g) -v {calibration_folder}:/simstrat/run eawag/simstrat:3.0.4 Calibration.par",
   "parameters": [
     {"name": "a_seiche", "initial":  2.0e-5, "min": 1e-5, "max": 0.5},
     {"name": "f_wind", "initial":  1.75, "min": 0.10, "max": 1.75},
