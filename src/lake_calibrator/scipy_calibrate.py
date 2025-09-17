@@ -57,7 +57,7 @@ def simstrat304_iterator(parameter_values, args, log):
     copy_simstrat_inputs(args["simulation_folder"], folder)
     parameter_names = [parameter["name"] for parameter in args["parameters"]]
     reference_year = edit_par_file(folder, parameter_names, parameter_values)
-    run_subprocess(args["execute"].format(calibration_folder=folder))
+    run_subprocess(args["execute"].format(calibration_folder=folder), cwd=folder)
     calib = args["calibration_options"]
     if calib["objective_function"] == "rms":
         error = simstrat_rms(calib["objective_variables"],

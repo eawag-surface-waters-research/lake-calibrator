@@ -5,8 +5,8 @@ import pandas as pd
 from datetime import datetime, timezone, timedelta
 
 
-def run_subprocess(command, debug=False):
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def run_subprocess(command, debug=False, cwd=None):
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=cwd)
     while True:
         output = process.stdout.readline()
         if output == '' and process.poll() is not None:
