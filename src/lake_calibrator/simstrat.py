@@ -15,6 +15,8 @@ def edit_par_file(folder, parameter_names, parameter_values):
     with open(par_file) as f:
         data = json.load(f)
     reference_year = data["Simulation"]["Reference year"]
+    data["Output"]["Depths"] = "z_out.dat"
+    data["Output"]["Times"] = "t_out.dat"
     for index, parameter in enumerate(parameter_names):
         data["ModelParameters"][parameter] = parameter_values[index]
     with open(par_file, "w") as f:

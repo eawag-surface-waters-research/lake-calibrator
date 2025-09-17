@@ -177,6 +177,8 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
         for parameter in parameters:
             config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
         config["Simulation"]["Continue from last snapshot"] = False
+        config["Output"]["Depths"] = "z_out.dat"
+        config["Output"]["Times"] = "t_out.dat"
         config_text = json.dumps(config)
         config_text = config_text.replace('$$"', '#"').replace('"$$', '"#')
         config_text = config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
