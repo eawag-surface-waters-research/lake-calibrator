@@ -22,7 +22,7 @@ def run_subprocess(command, debug=False):
         error_message += f"Standard Error: {stderr}\n"
         raise RuntimeError(error_message)
 
-def parse_observation_file(file, start, end, max_depth):
+def parse_observation_file(file, start, end, max_depth=False):
     df = pd.read_csv(file)
     df['time'] = pd.to_datetime(df['time'])
     df = df.drop_duplicates()
@@ -30,7 +30,8 @@ def parse_observation_file(file, start, end, max_depth):
     df = df.sort_index()
     df = df.loc[start:end]
     df["depth"] = df['depth'].abs()
-    df = df[df['depth'] <= max_depth]
+    if max_depth:
+        df = df[df['depth'] <= max_depth]
     df = df.dropna()
     if len(df) == 0:
         raise ValueError("No valid observations available")

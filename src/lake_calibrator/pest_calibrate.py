@@ -93,7 +93,7 @@ def read_observation_data(calibration_options, observations, start_date, end_dat
         obs = observations[obs_ids[0]]
         start = max(start_date, datetime.fromisoformat(obs["start"]))
         end = min(end_date, datetime.fromisoformat(obs["end"]))
-        df = parse_observation_file(obs["file"], start, end, max_depth)
+        df = parse_observation_file(obs["file"], start, end, max_depth=max_depth)
         times.extend(df.index.tolist())
         depths.extend([d for d in df["depth"].tolist() if not np.isnan(d)])
         observations[obs_ids[0]]["df"] = df
