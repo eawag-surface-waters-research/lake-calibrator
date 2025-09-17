@@ -15,7 +15,7 @@ Clone the repository and install it manually:
 ```commandline
 git clone git@github.com:eawag-surface-waters-research/lake-calibrator.git
 cd lake-calibrator
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 It is suggested to install the python packages in a virtual environment
 
