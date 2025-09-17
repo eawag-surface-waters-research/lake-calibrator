@@ -23,6 +23,8 @@ def pest_calibrate(args, log):
         log.info("Not running PEST, existing after producing inputs.")
         return {}
     log.info("Running PEST")
+    if "Calibration.par" not in args["execute"]:
+        raise ValueError('Execute command in argument file should contain "Calibration.par" NOT the name of your par file.')
     if "docker" in args["calibration_options"] and not args["calibration_options"]["docker"]:
         pest_local(args["calibration_options"], args["calibration_folder"], args["execute"])
     else:
@@ -78,6 +80,8 @@ def copy_model_inputs(calibration_folder, simulation_folder):
     os.makedirs(output_folder)
     for item in os.listdir(simulation_folder):
         file = os.path.join(simulation_folder, item)
+        if file.lower().endswith(".par"):
+            continue
         if os.path.isfile(file):
             shutil.copy2(file, output_folder)
         elif item != "Results":
@@ -176,11 +180,17 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
             config = json.load(file)
         for parameter in parameters:
             config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+
+        config["Output"]["Depths"] = "z_out.dat"
+        config["Output"]["Times"] = "t_out.dat"
+        config["Output"]["All"] = False
+
+        config["Simulation"]["DisplaySimulation"] = 0
         config["Simulation"]["Continue from last snapshot"] = False
-        if config["Output"]["Depths"] != "z_out.dat":
-            raise ValueError('Simstrat PAR file - Output Depths must be set to "z_out.dat"')
-        if config["Output"]["Times"] != "t_out.dat":
-            raise ValueError('Simstrat PAR file - Output Times must be set to "t_out.dat"')
+        config["Simulation"]["Show progress bar"] = False
+        config["Simulation"]["Save text restart"] = False
+        config["Simulation"]["Use text restart"] = False
+
         config_text = json.dumps(config)
         config_text = config_text.replace('$$"', '#"').replace('"$$', '"#')
         config_text = config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
