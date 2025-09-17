@@ -1,6 +1,8 @@
 import os
 import json
 import shutil
+
+import f90nml
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
@@ -8,17 +10,29 @@ from .functions import parse_observation_file, days_since_year
 
 
 def edit_par_file(folder, parameter_names, parameter_values):
+    # par_files = [f for f in os.listdir(folder) if f.endswith(".par")] #here need to be changed endswith .par or .nml
     par_files = [f for f in os.listdir(folder) if f.endswith(".par")]
     if len(par_files) != 1:
         raise ValueError("Could not locate par file")
     par_file = os.path.join(folder, par_files[0])
     with open(par_file) as f:
-        data = json.load(f)
-    reference_year = data["Simulation"]["Reference year"]
+        data0 = json.load(f)
+
+    reference_year = data0["Simulation"]["Reference year"]
+
+    par_files = [f for f in os.listdir(folder) if f.endswith(".nml")]
+    if len(par_files) != 1:
+        raise ValueError("Could not locate par file")
+    par_file = os.path.join(folder, par_files[0])
+    with open(par_file) as f:
+        # data = json.load(f)
+        data = f90nml.read(f)
+
     for index, parameter in enumerate(parameter_names):
-        data["ModelParameters"][parameter] = parameter_values[index]
-    with open(par_file, "w") as f:
-        json.dump(data, f, indent=4)
+        #data["ModelParameters"][parameter] = parameter_values[index]
+        data["aed2_oxygen"][parameter] = parameter_values[index]
+    #with open(par_file, "w") as f:
+        #json.dump(data, f, indent=4) # I don't understand which document is par_file written to
     return reference_year
 
 
@@ -39,13 +53,13 @@ def simstrat_rms(objective_variables, objective_weights, time_mode, depth_mode, 
     residuals = 0
     weights = 0
     for i, objective_variable in enumerate(objective_variables):
-        if objective_variable == "temperature":
-            obs = [o for o in observations if o["parameter"] == "temperature"]
+        if objective_variable == "oxygen": # change the variable here
+            obs = [o for o in observations if o["parameter"] == "oxygen"]
             if len(obs) != 1:
                 raise ValueError("Cannot find temperature observations to calculate residuals")
             obs = obs[0]
             df_obs = parse_observation_file(obs["file"], obs["start"], obs["end"])
-            df_sim = parse_output_file(os.path.join(folder, "T_out.dat"), reference_year)
+            df_sim = parse_output_file(os.path.join(folder, "OXY_oxy_out.dat"), reference_year)  #change the variable here
             for index, row in df_obs.iterrows():
                 if time_mode == "nearest":
                     time_index = df_sim.index.get_indexer([index], method='nearest')[0]
