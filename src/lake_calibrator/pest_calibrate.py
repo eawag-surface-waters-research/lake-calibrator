@@ -121,6 +121,7 @@ def write_pest_run_file(calibration_folder, docker_host_calibration_folder, exec
             file.write('dir="$(dirname "$(realpath "$0")")"\n')
             file.write('folder=$(basename "$(dirname "$(realpath "$0")")")\n')
             file.write('cp -r "/pest/calibrate/inputs"/* "$dir"/\n')
+            #file.write('python inflow_update.py\n') #-----Uncomment this line in case of inflows calibration, and copy-paste the file to calibration folder
             file.write(execute.format(calibration_folder=docker_host_calibration_folder + "/$folder") + "\n")
             file.write('echo "Run Complete"')
         os.chmod(os.path.join(calibration_folder, "run.sh"), 0o755)
@@ -130,7 +131,7 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
     if simulation == "simstrat":
         file_dict = {
             "temperature": "Results/T_out.dat"
-        }
+        } #--> Allow the user to specify which file ("T" or "S" etc) based on the parameter
         par_file = "Calibration.par"
 
     with open(os.path.join(calibration_folder, "pest.pst"), 'w') as file:
@@ -310,8 +311,7 @@ def pest_local(calibration_options, calibration_folder, execute):
     proc = []
     ip_address = socket.gethostbyname(socket.gethostname())
     calibration_folder = os.path.abspath(calibration_folder)
-    cmd = "{} pest.pst /h :{}".format(calibration_options["local_compilation_pest"],
-                                      calibration_options["port"])
+    cmd =[calibration_options["local_compilation_pest"], "pest.pst", "/h", f":{calibration_options['port']}"]
     p = subprocess.Popen(cmd, cwd=calibration_folder)
     proc.append(p)
     for i in range(calibration_options["agents"]):
@@ -326,7 +326,8 @@ def pest_local(calibration_options, calibration_folder, execute):
         if platform.system() == 'Linux':
             with open(os.path.join(agent_dir, "run.sh"), 'w') as file:
                 file.write('#!/bin/bash\n')
-                file.write('cp -r "{}" "{}"/\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
+                file.write('cp -r {}/* "{}"/\n'.format(os.path.join(calibration_folder, "inputs"), agent_dir))
+                #file.write('python inflow_update.py\n') #-----Uncomment this line in case of inflows calibration, and copy-paste the file to calibration folder
                 file.write(execute.format(calibration_folder=agent_dir))
             os.chmod(os.path.join(agent_dir, "run.sh"), 0o755)
         else:
@@ -334,8 +335,7 @@ def pest_local(calibration_options, calibration_folder, execute):
                 file.write(
                     'xcopy "{}" "{}" /E /I /Y\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
-        cmd = "{} pest.pst /h {}:{}".format(calibration_options["local_compilation_agent"], ip_address,
-                                            calibration_options["port"])
+        cmd = [calibration_options["local_compilation_agent"], "pest.pst", "/h", f"{ip_address}:{calibration_options['port']}"]
         p = subprocess.Popen(cmd, cwd=agent_dir)
         proc.append(p)
     for p in proc:

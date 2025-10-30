@@ -11,3 +11,4 @@ observations/*
 notebooks/.ipynb_checkpoints
 notebooks/*
 !notebooks/*.ipynb
+.vscode

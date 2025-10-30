@@ -57,12 +57,12 @@ def simstrat_rms(objective_variables, objective_weights, time_mode, depth_mode, 
     weights = 0
     for i, objective_variable in enumerate(objective_variables):
         if objective_variable == "temperature":
-            obs = [o for o in observations if o["parameter"] == "temperature"]
+            obs = [o for o in observations if o["parameter"] == "temperature"] #--> Allow the user to specify accordingly
             if len(obs) != 1:
                 raise ValueError("Cannot find temperature observations to calculate residuals")
             obs = obs[0]
             df_obs = parse_observation_file(obs["file"], obs["start"], obs["end"])
-            df_sim = parse_output_file(os.path.join(folder, "T_out.dat"), reference_year)
+            df_sim = parse_output_file(os.path.join(folder, "T_out.dat"), reference_year) #--> Allow the user to specify accordingly
             for index, row in df_obs.iterrows():
                 if time_mode == "nearest":
                     time_index = df_sim.index.get_indexer([index], method='nearest')[0]

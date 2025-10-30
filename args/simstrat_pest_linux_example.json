@@ -1,0 +1,31 @@
+{
+  "simulation_folder": "/storage/lakekivu/1D_Model/Calibrator/Kivu-Simstrat-1",
+  "calibration_folder": "/storage/lakekivu/1D_Model/Calibrator/lake-calibrator/runs",
+  "observations": [{
+    "file": "/storage/lakekivu/1D_Model/Calibrator/lake-calibrator/observations/temperature.csv",
+    "parameter": "temperature",
+    "unit": "degC",
+    "start": "2011-01-01T00:00:00+00:00",
+    "end": "2012-01-01T00:00:00+00:00"
+  }],
+  "simulation": "simstrat",
+  "execute": "/storage/lakekivu/1D_Model/Calibrator/build/simstrat_updated_modek_v11_nus_aed2 {calibration_folder}/calibration.par",
+  "parameters": [
+    {"name": "f_wind", "initial":  2.4, "min": 0.10, "max": 4.0}
+  ],
+  "calibration_framework": "PEST",
+  "calibration_options": {
+    "objective_function": "rms",
+    "run": true,
+    "docker": false,
+    "local_compilation_pest": "/storage/lakekivu/1D_Model/Calibrator/folder_pest_hp/pest_hp",
+    "local_compilation_agent": "/storage/lakekivu/1D_Model/Calibrator/folder_pest_hp/agent_hp",
+    "objective_variables": ["temperature"],
+    "objective_weights": [1],
+    "time_mode": "nearest",
+    "depth_mode": "linear_interpolation",
+    "agents": 5,
+    "port": 4005,
+    "debug": false
+  }
+}
