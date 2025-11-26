@@ -20,7 +20,7 @@ def edit_par_file(folder, parameter_names, parameter_values):
 
     data["Simulation"]["DisplaySimulation"] = 0
     data["Simulation"]["Continue from last snapshot"] = False
-    data["Simulation"]["Show progress bar"] = False
+    data["Simulation"]["Show progress bar"] = True
     data["Simulation"]["Save text restart"] = False
     data["Simulation"]["Use text restart"] = False
 
