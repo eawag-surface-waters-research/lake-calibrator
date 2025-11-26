@@ -1,5 +1,6 @@
 import os
 import json
+import yaml
 import time
 import shutil
 import socket
@@ -45,14 +46,17 @@ def pest_input_files(args, log):
     copy_model_inputs(args["calibration_folder"], args["simulation_folder"])
 
     log.info("Creating PEST .tpl file", indent=1)
-    config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
+    if "simstrat" in args["simulation"]:
+        if "fabm" in args["simulation"]:
+            simstrat_config, fabm_config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
+        else:
+            simstrat_config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
 
-    if args["simulation"] == "simstrat":
-        start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(years=1)
-        end_date = datetime_from_days(config["Simulation"]["End d"], config["Simulation"]["Reference year"])
-        max_depth = simstrat_max_depth(args["simulation_folder"], config["Input"]["Morphology"])
+        start_date = datetime_from_days(simstrat_config["Simulation"]["Start d"], simstrat_config["Simulation"]["Reference year"]) + relativedelta(years=1)
+        end_date = datetime_from_days(simstrat_config["Simulation"]["End d"], simstrat_config["Simulation"]["Reference year"])
+        max_depth = simstrat_max_depth(args["simulation_folder"], simstrat_config["Input"]["Morphology"])
     else:
-        raise ValueError("Input files not implemented for {}".format(args["simulation"]))
+         raise ValueError("Input files not implemented for {}".format(args["simulation"]))
 
     log.info("Reading observation data", indent=1)
     times, depths, observations = read_observation_data(args["calibration_options"], args["observations"], start_date, end_date, max_depth)
@@ -60,9 +64,9 @@ def pest_input_files(args, log):
     log.info("Creating PEST run file", indent=1)
     run_file = write_pest_run_file(args["calibration_folder"], args["docker_host_calibration_folder"], args["execute"], args["calibration_options"])
 
-    if args["simulation"] == "simstrat":
+    if "simstrat" in args["simulation"]:
         log.info("Setting Simstrat output files", indent=1)
-        set_simstrat_outputs(args["calibration_folder"], times, depths, config["Simulation"]["Reference year"])
+        set_simstrat_outputs(args["calibration_folder"], times, depths, simstrat_config["Simulation"]["Reference year"])
 
     log.info("Creating PEST .ins files", indent=1)
     combined_observations = write_pest_ins_file(args["calibration_folder"], args["calibration_options"], args["simulation"], observations, times, depths)
@@ -132,6 +136,15 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
             "temperature": "Results/T_out.dat"
         }
         par_file = "Calibration.par"
+    elif simulation == "simstrat-fabm-selmaprotbas":
+        file_dict = {
+            "temperature": "Results/T_out.dat",
+            "oyxgen": "Results/selmaprotbas_o2_out.dat",
+            "phosphate": "Results/selmaprotbas_po_out.dat",
+            "nitrate": "Results/selmaprotbas_nn_out.dat",
+            "ammonium": "Results/selmaprotbas_aa_out.dat"
+        }
+        par_file = "selmaprotbas.yaml"
 
     with open(os.path.join(calibration_folder, "pest.pst"), 'w') as file:
         file.write('pcf\n')
@@ -170,36 +183,60 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
         file.write('* prior information\n')
 
 def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simulation):
-    if simulation == "simstrat":
-        par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
-        if len(par_files) != 1:
-            raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(par_files)))
-        if par_files[0] == "Calibration.par":
+    if "simstrat" in simulation:
+        simstrat_par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
+        if len(simstrat_par_files) != 1:
+            raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(simstrat_par_files)))
+        if simstrat_par_files[0] == "Calibration.par":
             raise ValueError("PAR file must not be called Calibration.par, this will cause PEST to fail.")
-        with open(os.path.join(simulation_folder, par_files[0]), 'r') as file:
-            config = json.load(file)
-        for parameter in parameters:
-            config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+        with open(os.path.join(simulation_folder, simstrat_par_files[0]), 'r') as file:
+            simstrat_config = json.load(file)
 
-        config["Output"]["Depths"] = "z_out.dat"
-        config["Output"]["Times"] = "t_out.dat"
-        config["Output"]["All"] = False
+        simstrat_config["Output"]["Depths"] = "z_out.dat"
+        simstrat_config["Output"]["Times"] = "t_out.dat"
+        simstrat_config["Output"]["All"] = False
 
-        config["Simulation"]["DisplaySimulation"] = 0
-        config["Simulation"]["Continue from last snapshot"] = False
-        config["Simulation"]["Show progress bar"] = False
-        config["Simulation"]["Save text restart"] = False
-        config["Simulation"]["Use text restart"] = False
+        simstrat_config["Simulation"]["DisplaySimulation"] = 0
+        simstrat_config["Simulation"]["Continue from last snapshot"] = False
+        simstrat_config["Simulation"]["Show progress bar"] = False
+        simstrat_config["Simulation"]["Save text restart"] = False
+        simstrat_config["Simulation"]["Use text restart"] = False
 
-        config_text = json.dumps(config)
-        config_text = config_text.replace('$$"', '#"').replace('"$$', '"#')
-        config_text = config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
+        if simulation == "simstrat":
+            for parameter in parameters:
+                simstrat_config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+
+        simstrat_config_text = json.dumps(simstrat_config)
+        simstrat_config_text = simstrat_config_text.replace('$$"', '#"').replace('"$$', '"#')
+        simstrat_config_text = simstrat_config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
+
+        if "fabm" in simulation:
+            fabm_par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".yaml")]
+            if len(fabm_par_files) != 1:
+                raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(fabm_par_files)))
+            with open(os.path.join(simulation_folder, fabm_par_files[0]), 'r') as file:
+                fabm_config = yaml.safe_load(file)
+
+            for parameter in parameters:
+                instance, param = parameter["name"].split(".")
+                fabm_config["instances"][instance]["parameters"][param] = f"#{parameter['name']}#"
+
+            fabm_config_text = yaml.dump(fabm_config)
+
     else:
         raise ValueError("write_pest_tpl_file not implemented for simulation: {}".format(simulation))
-    with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
-        file.write('ptf #\n')
-        file.write(config_text)
-    return config
+    if simulation == "simstrat":
+        with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
+            file.write('ptf #\n')
+            file.write(simstrat_config_text)
+        return simstrat_config
+    elif "simstrat" in simulation and "fabm" in simulation:
+        with open(os.path.join(calibration_folder, "Calibration.par"), 'w') as file:
+            file.write(simstrat_config_text)
+        with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
+            file.write('ptf #\n')
+            file.write(fabm_config_text)
+        return simstrat_config, fabm_config
 
 def write_pest_ins_file(calibration_folder, calibration_options, simulation, observations, times, depths):
     combined_observations = []
@@ -211,7 +248,7 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
         df = observations[obs_ids[0]]["df"]
         with open(os.path.join(calibration_folder, "{}.ins".format(objective_variable)), 'w') as file:
             file.write('pif @\n')
-            if simulation == "simstrat":
+            if "simstrat" in simulation:
                 file.write('l1\n')
                 for i, t in enumerate(times):
                     if t in df.index:
@@ -318,7 +355,7 @@ def pest_local(calibration_options, calibration_folder, execute):
         agent_dir = os.path.join(calibration_folder, f"agent{i}")
         os.makedirs(agent_dir, exist_ok=True)
         for file in os.listdir(calibration_folder):
-            if file.endswith((".pst", ".tpl", ".ins", ".sh")):
+            if file.endswith((".pst", ".tpl", ".ins", ".sh", ".par")):
                 try:
                     shutil.copy(os.path.join(calibration_folder, file), agent_dir)
                 except FileNotFoundError:

@@ -1,0 +1,30 @@
+{
+  "simulation_folder": "/path/lake_name",
+  "calibration_folder": "runs/lake_name",
+  "observations": [{
+    "file": "observations/lake_name/phosphate.csv",
+    "parameter": "phosphate",
+    "unit": "mmol P/m3",
+    "start": "1982-01-01T01:00:00+00:00",
+    "end": "2022-01-01T01:00:00+00:00"
+  }],
+  "simulation": "simstrat-fabm-selmaprotbas",
+  "execute": "docker run --rm --user $(id -u):$(id -g) -v {calibration_folder}:/simstrat/run eawag/simstrat:3.0.4 Calibration.par",
+  "parameters": [
+    {"name": "diatoms.c0", "initial":  0.005, "min": 1e-5, "max": 0.5},
+    {"name": "diatoms.rfr", "initial":  0.01, "min": 0.005, "max": 0.1},
+    {"name": "diatoms.rfn", "initial":  0.1, "min": 0.01, "max": 0.5},
+    {"name": "selmaprotbas.po4ret", "initial":  0.18, "min": 0.1, "max": 1}
+  ],
+  "calibration_framework": "PEST",
+  "calibration_options": {
+    "objective_function": "rms",
+    "objective_variables": ["temperature"],
+    "objective_weights": [1],
+    "time_mode": "nearest",
+    "depth_mode": "linear_interpolation",
+    "agents": 10,
+    "port": 4005,
+    "debug": false
+  }
+}
