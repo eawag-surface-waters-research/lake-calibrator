@@ -282,21 +282,21 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
 
 
 def weighted_rms(g):
-    return np.sqrt(g["Residual2*Weight"].sum() / g["Weight"].sum())
+    return np.round(np.sqrt(g["Residual2*Weight"].sum() / g["Weight"].sum()),3)
 
 
 def pest_output_files(calibration_folder):
     if not os.path.exists(os.path.join(calibration_folder, "pest.par")):
         raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
-    df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, delim_whitespace=True)
-    dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), delim_whitespace=True)
+    df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, sep='\s+')
+    dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), sep='\s+')
     dfe["Residual2*Weight"] = dfe["Weight"] * dfe["Residual"] ** 2
     dfe["depth_id"] = dfe['Name'].str.split('_').str[-1].astype(int)
     dfb = dfe[dfe['depth_id'] == dfe['depth_id'].min()]
     dfs = dfe[dfe['depth_id'] == dfe['depth_id'].max()]
-    overall = np.round((dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5,3)
-    bottom = np.round((dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5,3)
-    surface = np.round((dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5,3)
+    overall = float(np.round((dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5,3))
+    bottom = float(np.round((dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5,3))
+    surface = float(np.round((dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5,3))
 
     out = {
         "parameters": dict(zip(np.round(df.iloc[:, 0],5), np.round(df.iloc[:, 1],5))),
@@ -310,7 +310,7 @@ def pest_output_files(calibration_folder):
     try:
         dfd = dfe.groupby("depth_id").apply(
             lambda g: pd.Series({
-                "rmse": np.round(weighted_rms(g),3),
+                "rmse": weighted_rms(g),
                 "count": len(g)
             })).reset_index()
         result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
@@ -372,7 +372,7 @@ def pest_local(calibration_options, calibration_folder, execute):
         else:
             with open(os.path.join(agent_dir, "run.bat"), 'w') as file:
                 file.write(
-                    'xcopy "{}" "{}" /E /I /Y\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
+                    'xcopy "{}" "{}" /E /I /Y /Q\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
         cmd = "{} pest.pst /h {}:{}".format(calibration_options["local_compilation_agent"], ip_address,
                                             calibration_options["port"])
