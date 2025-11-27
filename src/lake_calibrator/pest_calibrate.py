@@ -206,6 +206,9 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
             for parameter in parameters:
                 simstrat_config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
 
+        elif "simstrat" in simulation and "fabm" in simulation:
+            simstrat_config["ModelConfig"]["CoupleFABM"] = True
+
         simstrat_config_text = json.dumps(simstrat_config)
         simstrat_config_text = simstrat_config_text.replace('$$"', '#"').replace('"$$', '"#')
         simstrat_config_text = simstrat_config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
@@ -291,12 +294,12 @@ def pest_output_files(calibration_folder):
     dfe["depth_id"] = dfe['Name'].str.split('_').str[-1].astype(int)
     dfb = dfe[dfe['depth_id'] == dfe['depth_id'].min()]
     dfs = dfe[dfe['depth_id'] == dfe['depth_id'].max()]
-    overall = (dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5
-    bottom = (dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5
-    surface = (dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5
+    overall = np.round((dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5,3)
+    bottom = np.round((dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5,3)
+    surface = np.round((dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5,3)
 
     out = {
-        "parameters": dict(zip(df.iloc[:, 0], df.iloc[:, 1])),
+        "parameters": dict(zip(np.round(df.iloc[:, 0],5), np.round(df.iloc[:, 1],5))),
         "error": {
             "overall": overall,
             "surface": surface,
@@ -307,7 +310,7 @@ def pest_output_files(calibration_folder):
     try:
         dfd = dfe.groupby("depth_id").apply(
             lambda g: pd.Series({
-                "rmse": weighted_rms(g),
+                "rmse": np.round(weighted_rms(g),3),
                 "count": len(g)
             })).reset_index()
         result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
