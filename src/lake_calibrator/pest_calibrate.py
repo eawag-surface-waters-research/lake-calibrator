@@ -48,7 +48,12 @@ def pest_input_files(args, log):
     config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
 
     if args["simulation"] == "simstrat":
-        start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(years=1)
+        if "burn_in_days" in args["calibration_options"]:
+            log.info('Using burn in period of {} days'.format(args["calibration_options"]["burn_in_days"]), indent=2)
+            start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(days=args["calibration_options"]["burn_in_days"])
+        else:
+            log.info('"burn_in_days" not defined in calibration_options, using default of 365 days', indent=2)
+            start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(years=1)
         end_date = datetime_from_days(config["Simulation"]["End d"], config["Simulation"]["Reference year"])
         max_depth = simstrat_max_depth(args["simulation_folder"], config["Input"]["Morphology"])
     else:
