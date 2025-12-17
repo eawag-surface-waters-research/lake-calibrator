@@ -1,10 +1,12 @@
 import os
 import shutil
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from scipy.optimize import minimize
-from .simstrat import edit_par_file, copy_simstrat_inputs, simstrat_rms
-from .functions import run_subprocess
+from .simstrat import edit_par_file, copy_simstrat_inputs, simstrat_rms, simstrat_max_depth, set_simstrat_outputs
+from .functions import run_subprocess, read_observation_data, datetime_from_days, days_since_year
 
-iteration = 0
+iteration = 1
 run = 0
 
 def scipy_calibrate(args, log):
@@ -18,6 +20,24 @@ def scipy_calibrate(args, log):
         raise ValueError('Execute command in argument file should contain "Calibration.par" NOT the name of your par file.')
 
     if args["simulation"] == "simstrat":
+        base_folder = os.path.join(args["calibration_folder"], "base")
+        copy_simstrat_inputs(args["simulation_folder"], base_folder)
+        config = edit_par_file(base_folder, initial=True)
+        if "burn_in_days" in args["calibration_options"]:
+            log.info('Using burn in period of {} days'.format(args["calibration_options"]["burn_in_days"]), indent=2)
+            start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(days=args["calibration_options"]["burn_in_days"])
+        else:
+            log.info('"burn_in_days" not defined in calibration_options, using default of 365 days', indent=2)
+            start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(years=1)
+        end_date = datetime_from_days(config["Simulation"]["End d"], config["Simulation"]["Reference year"])
+        max_depth = simstrat_max_depth(args["simulation_folder"], config["Input"]["Morphology"])
+        times, depths, observations = read_observation_data(args["calibration_options"], args["observations"], start_date, end_date, max_depth)
+        if times[-1] + relativedelta(days=1) < end_date:
+            log.info("Editing PAR file to stop simulation at last observation", indent=1)
+            end_date = days_since_year(times[-1] + relativedelta(days=1), config["Simulation"]["Reference year"])
+            edit_par_file(base_folder, end_date=end_date)
+        log.info("Setting Simstrat output files", indent=1)
+        set_simstrat_outputs(base_folder, times, depths, config["Simulation"]["Reference year"])
         fun = simstrat304_iterator
     else:
         raise ValueError("Not implemented for {}".format(args["simulation"]))
@@ -61,16 +81,15 @@ def simstrat304_iterator(parameter_values, args, log):
     log.info("Running: [{}]".format(", ".join(map(str, parameter_values))), indent=2)
     global run
     folder = os.path.abspath(os.path.join(args["calibration_folder"], "{}_{}".format(iteration, run)))
-    copy_simstrat_inputs(args["simulation_folder"], folder)
+    shutil.copytree(os.path.join(args["calibration_folder"], "base"), folder)
     parameter_names = [parameter["name"] for parameter in args["parameters"]]
-    reference_year = edit_par_file(folder, parameter_names, parameter_values)
+    config = edit_par_file(folder, parameter_names=parameter_names, parameter_values=parameter_values)
+    reference_year = config["Simulation"]["Reference year"]
     run_subprocess(args["execute"].format(calibration_folder=folder), cwd=folder)
     calib = args["calibration_options"]
     if calib["objective_function"] == "rms":
         error = simstrat_rms(calib["objective_variables"],
                              calib["objective_weights"],
-                             calib["time_mode"],
-                             calib["depth_mode"],
                              args["observations"],
                              reference_year,
                              os.path.join(folder, "Results"))
