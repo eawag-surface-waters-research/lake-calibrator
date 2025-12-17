@@ -42,7 +42,7 @@ def pest_calibrate(args, log):
 
 def pest_input_files(args, log):
     log.info("Copying model input files", indent=1)
-    input_folder = os.path.join(args["calibration_folder"], "input")
+    input_folder = os.path.join(args["calibration_folder"], "inputs")
     copy_model_inputs(input_folder, args["simulation_folder"])
 
     log.info("Creating PEST .tpl file", indent=1)
