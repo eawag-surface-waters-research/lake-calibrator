@@ -11,7 +11,7 @@ import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from .functions import run_subprocess, parse_observation_file, list_from_selection, datetime_from_days
+from .functions import run_subprocess, parse_observation_file, list_from_selection, datetime_from_days, days_since_year
 from .simstrat import set_simstrat_outputs, simstrat_max_depth
 
 def pest_calibrate(args, log):
@@ -66,6 +66,9 @@ def pest_input_files(args, log):
     run_file = write_pest_run_file(args["calibration_folder"], args["docker_host_calibration_folder"], args["execute"], args["calibration_options"])
 
     if args["simulation"] == "simstrat":
+        if times[-1] + relativedelta(days=1) < end_date:
+            log.info("Editing PEST .tpl file to limit stop simulation at last observation", indent=1)
+            overwrite_simstrat_tpl(args["calibration_folder"], times[-1], config["Simulation"]["Reference year"])
         log.info("Setting Simstrat output files", indent=1)
         set_simstrat_outputs(args["calibration_folder"], times, depths, config["Simulation"]["Reference year"])
 
@@ -205,6 +208,21 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
         file.write('ptf #\n')
         file.write(config_text)
     return config
+
+def overwrite_simstrat_tpl(calibration_folder, end_date, reference_year):
+    with open(os.path.join(calibration_folder, "pest.tpl"), 'r') as file:
+        lines = file.readlines()
+    modified_lines = []
+    for line in lines:
+        if "End d" in line:
+            new_line = f'"End d": {days_since_year(end_date + relativedelta(days=1), reference_year)},\n'
+            modified_lines.append(new_line)
+        else:
+            modified_lines.append(line)
+
+    with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
+        file.writelines(modified_lines)
+
 
 def write_pest_ins_file(calibration_folder, calibration_options, simulation, observations, times, depths):
     combined_observations = []
