@@ -3,6 +3,7 @@ import json
 import shutil
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from scipy.interpolate import interp1d
 from .functions import parse_observation_file, days_since_year
 
@@ -65,7 +66,7 @@ def simstrat_rms(objective_variables, objective_weights, observations, reference
             if len(obs) != 1:
                 raise ValueError("Cannot find temperature observations to calculate residuals")
             obs = obs[0]
-            df_obs = parse_observation_file(obs["file"], obs["start"], obs["end"])
+            df_obs = parse_observation_file(obs["file"], datetime.fromisoformat(obs["start"]), datetime.fromisoformat(obs["end"]))
             df_sim = parse_output_file(os.path.join(folder, "T_out.dat"), reference_year)
             df_sim = df_sim.reset_index().melt(id_vars='time', var_name='depth', value_name='value')
             df_sim['depth'] = df_sim['depth'].astype(float) * -1

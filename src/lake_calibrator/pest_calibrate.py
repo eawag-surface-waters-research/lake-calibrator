@@ -309,8 +309,7 @@ def pest_local(calibration_options, calibration_folder, execute):
     proc = []
     ip_address = socket.gethostbyname(socket.gethostname())
     calibration_folder = os.path.abspath(calibration_folder)
-    cmd = "{} pest.pst /h :{}".format(calibration_options["local_compilation_pest"],
-                                      calibration_options["port"])
+    cmd = [calibration_options["local_compilation_pest"], "pest.pst", "/h", ":{}".format(calibration_options["port"])]
     p = subprocess.Popen(cmd, cwd=calibration_folder)
     proc.append(p)
     for i in range(calibration_options["agents"]):
@@ -333,8 +332,7 @@ def pest_local(calibration_options, calibration_folder, execute):
                 file.write(
                     'xcopy "{}" "{}" /E /I /Y\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
-        cmd = "{} pest.pst /h {}:{}".format(calibration_options["local_compilation_agent"], ip_address,
-                                            calibration_options["port"])
+        cmd = [calibration_options["local_compilation_agent"], "pest.pst", "/h", "{}:{}".format(ip_address, calibration_options["port"])]
         p = subprocess.Popen(cmd, cwd=agent_dir)
         proc.append(p)
     for p in proc:

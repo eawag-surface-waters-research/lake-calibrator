@@ -21,8 +21,6 @@
     "objective_function": "rms",
     "objective_variables": ["temperature"],
     "objective_weights": [1],
-    "time_mode": "nearest",
-    "depth_mode": "linear_interpolation",
     "agents": 10,
     "port": 4005,
     "debug": false
