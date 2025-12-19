@@ -25,7 +25,8 @@ def run_subprocess(command, debug=False, cwd=None):
 
 def parse_observation_file(file, start, end, max_depth=False):
     df = pd.read_csv(file)
-    df['time'] = pd.to_datetime(df['time'])
+    df['time'] = pd.to_datetime(df['time'], utc=True)
+    df['time'] = df['time'].dt.round('min')
     df = df.drop_duplicates()
     df = df.set_index('time')
     df = df.sort_index()

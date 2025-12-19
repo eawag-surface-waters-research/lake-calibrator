@@ -17,6 +17,7 @@ def edit_par_file(folder, initial=False, parameter_names=[], parameter_values=[]
     if initial:
         data["Output"]["Depths"] = "z_out.dat"
         data["Output"]["Times"] = "t_out.dat"
+        data["Output"]["Path"] = "Results"
         data["Output"]["All"] = False
 
         data["Simulation"]["DisplaySimulation"] = 0
@@ -70,6 +71,7 @@ def simstrat_rms(objective_variables, objective_weights, observations, reference
             df_sim = parse_output_file(os.path.join(folder, "T_out.dat"), reference_year)
             df_sim = df_sim.reset_index().melt(id_vars='time', var_name='depth', value_name='value')
             df_sim['depth'] = df_sim['depth'].astype(float) * -1
+            df_sim['time'] = df_sim['time'].dt.round('min')
             df = df_obs.merge(df_sim, on=['time', 'depth'], how='left', suffixes=('_obs', '_sim'))
             df = df.dropna()
             df["residuals"] = (objective_weights[i] * df["weight"] * (df["value_obs"] - df["value_sim"]) ** 2)
@@ -102,5 +104,5 @@ def set_simstrat_outputs(calibration_folder, times, depths, reference_year):
             file.write("%.4f\n" % days_since_year(t, reference_year))
 
 def simstrat_max_depth(simulation_folder, bathymetry_file):
-    df = pd.read_csv(os.path.join(simulation_folder, bathymetry_file), skiprows=1, delim_whitespace=True, header=None)
+    df = pd.read_csv(os.path.join(simulation_folder, bathymetry_file), skiprows=1, sep='\s+', header=None)
     return abs(df.iloc[:, 0].min())

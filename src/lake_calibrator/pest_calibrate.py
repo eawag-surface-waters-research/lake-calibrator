@@ -167,6 +167,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
 
         config["Output"]["Depths"] = "z_out.dat"
         config["Output"]["Times"] = "t_out.dat"
+        config["Output"]["Path"] = "Results"
         config["Output"]["All"] = False
 
         config["Simulation"]["DisplaySimulation"] = 0
@@ -324,7 +325,7 @@ def pest_local(calibration_options, calibration_folder, execute):
         if platform.system() == 'Linux':
             with open(os.path.join(agent_dir, "run.sh"), 'w') as file:
                 file.write('#!/bin/bash\n')
-                file.write('cp -r "{}" "{}"/\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
+                file.write('cp -r "{}"/* "{}"/\n'.format(os.path.join(calibration_folder, "inputs"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
             os.chmod(os.path.join(agent_dir, "run.sh"), 0o755)
         else:
