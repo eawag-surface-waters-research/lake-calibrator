@@ -72,9 +72,19 @@ def scipy_calibrate(args, log):
     if not results.success:
         raise ValueError("Optimizer existed unsuccessfully: {}".format(results.message))
 
+    log.info("Running final simulation with optimal parameters", indent=1)
+    final_folder = os.path.abspath(os.path.join(args["calibration_folder"], "final"))
+    shutil.copytree(os.path.join(args["calibration_folder"], "base"), final_folder)
+    config = edit_par_file(final_folder, parameter_names=parameter_names, parameter_values=results.x)
+    reference_year = config["Simulation"]["Reference year"]
+    run_subprocess(args["execute"].format(calibration_folder=final_folder), cwd=final_folder)
+    calib = args["calibration_options"]
+    error = simstrat_rms(calib["objective_variables"], calib["objective_weights"], args["observations"], reference_year,
+                         os.path.join(final_folder, "Results"))
+
     return {
         "parameters": dict(zip(parameter_names, results["x"])),
-        "error": results["fun"]
+        "error": error
     }
 
 def simstrat304_iterator(parameter_values, args, log):
@@ -96,6 +106,6 @@ def simstrat304_iterator(parameter_values, args, log):
     else:
         raise ValueError("Unrecognized objective function {}".format(calib["objective_function"]))
     shutil.rmtree(folder)
-    log.info("Error: {}".format(error), indent=3)
+    log.info("Error: {}".format(error["overall"]), indent=3)
     run += 1
-    return error
+    return error["overall"]

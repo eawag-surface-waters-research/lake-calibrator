@@ -36,7 +36,7 @@ def pest_calibrate(args, log):
         debug = "debug" in args["calibration_options"] and args["calibration_options"]["debug"]
         run_subprocess(cmd, debug=debug)
     log.info("PEST completed, reading output files.")
-    result = pest_output_files(args["calibration_folder"])
+    result = pest_output_files(args["calibration_folder"], args["calibration_options"]["objective_variables"])
     result["observations"] = observations
     return result
 
@@ -245,7 +245,7 @@ def weighted_rms(g):
     return np.sqrt(g["Residual2*Weight"].sum() / g["Weight"].sum())
 
 
-def pest_output_files(calibration_folder):
+def pest_output_files(calibration_folder, objective_variables):
     if not os.path.exists(os.path.join(calibration_folder, "pest.par")):
         raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
     df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, delim_whitespace=True)
@@ -263,23 +263,28 @@ def pest_output_files(calibration_folder):
         "error": {
             "overall": overall,
             "surface": surface,
-            "bottom": bottom
+            "bottom": bottom,
+            "by_depth": {}
         }
     }
 
-    try:
-        dfd = dfe.groupby("depth_id").apply(
-            lambda g: pd.Series({
-                "rmse": weighted_rms(g),
-                "count": len(g)
-            })).reset_index()
-        result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
-        depths = np.abs(np.loadtxt(result_file, delimiter=",", max_rows=1, dtype=str)[1:].astype(float))
-        dfd["depth_id"] = depths
-        dfd.columns = ["depth", "rmse", "count"]
-        out["error"]["by_depth"] = dfd.to_dict(orient='list')
-    except:
-        print("Failed to extract RMSE error per depth")
+    for objective_variable in objective_variables:
+        if objective_variable == "temperature":
+            try:
+                dfd = dfe.groupby("depth_id").apply(
+                    lambda g: pd.Series({
+                        "rmse": weighted_rms(g),
+                        "count": len(g)
+                    })).reset_index()
+                result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
+                depths = np.abs(np.loadtxt(result_file, delimiter=",", max_rows=1, dtype=str)[1:].astype(float))
+                dfd["depth_id"] = depths
+                dfd.columns = ["depth", "rmse", "count"]
+                out["error"]["by_depth"]["temperature"] = dfd.to_dict(orient='list')
+            except:
+                print("Failed to extract RMSE error per depth for {}".format(objective_variable))
+        else:
+            print("RMSE per depth not implemented for {}".format(objective_variable))
 
     return out
 

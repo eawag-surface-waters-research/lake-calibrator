@@ -15,6 +15,9 @@ def edit_par_file(folder, initial=False, parameter_names=[], parameter_values=[]
         data = json.load(f)
 
     if initial:
+        if "Path" in data["Output"] and os.path.exists(os.path.join(folder, data["Output"]["Path"])) and data["Output"]["Path"] != "":
+            shutil.rmtree(os.path.join(folder, data["Output"]["Path"]))
+
         data["Output"]["Depths"] = "z_out.dat"
         data["Output"]["Times"] = "t_out.dat"
         data["Output"]["Path"] = "Results"
@@ -61,6 +64,11 @@ def copy_simstrat_inputs(src, dst):
 def simstrat_rms(objective_variables, objective_weights, observations, reference_year, folder):
     residuals = 0
     weights = 0
+    surface_residuals = 0
+    surface_weights = 0
+    bottom_residuals = 0
+    bottom_weights = 0
+    by_depth = {}
     for i, objective_variable in enumerate(objective_variables):
         if objective_variable == "temperature":
             obs = [o for o in observations if o["parameter"] == "temperature"]
@@ -74,13 +82,39 @@ def simstrat_rms(objective_variables, objective_weights, observations, reference
             df_sim['time'] = df_sim['time'].dt.round('min')
             df = df_obs.merge(df_sim, on=['time', 'depth'], how='left', suffixes=('_obs', '_sim'))
             df = df.dropna()
-            df["residuals"] = (objective_weights[i] * df["weight"] * (df["value_obs"] - df["value_sim"]) ** 2)
-            df["obj_weights"] = (objective_weights[i] * df["weight"])
-            residuals = residuals + df['residuals'].sum()
-            weights = weights + df['obj_weights'].sum()
         else:
             raise ValueError("Not implemented for objective variable {}".format(objective_variable))
-    return (residuals / weights) ** 0.5
+
+        df["residuals"] = (objective_weights[i] * df["weight"] * (df["value_obs"] - df["value_sim"]) ** 2)
+        df["obj_weights"] = (objective_weights[i] * df["weight"])
+        residuals = residuals + df['residuals'].sum()
+        weights = weights + df['obj_weights'].sum()
+        df_surface = df[df['depth'] == df['depth'].min()]
+        surface_residuals = surface_residuals + df_surface['residuals'].sum()
+        surface_weights = surface_weights + df_surface['obj_weights'].sum()
+        df_bottom = df[df['depth'] == df['depth'].max()]
+        bottom_residuals = bottom_residuals + df_bottom['residuals'].sum()
+        bottom_weights = bottom_weights + df_bottom['obj_weights'].sum()
+        dfd = df.groupby("depth").apply(
+            lambda g: pd.Series({
+                "rmse": (g['residuals'].sum() / g['obj_weights'].sum()) ** 0.5,
+                "count": len(g)
+            })
+        ).reset_index()
+        dfd.columns = ["depth", "rmse", "count"]
+        by_depth[objective_variable] = dfd.to_dict(orient='list')
+
+    overall = (residuals / weights) ** 0.5
+    surface = (surface_residuals / surface_weights) ** 0.5 if surface_weights > 0 else None
+    bottom = (bottom_residuals / bottom_weights) ** 0.5 if bottom_weights > 0 else None
+
+    return {
+            "overall": overall,
+            "surface": surface,
+            "bottom": bottom,
+            "by_depth": by_depth
+        }
+
 
 def parse_output_file(file, reference_year):
     df = pd.read_csv(file)
