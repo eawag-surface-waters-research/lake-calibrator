@@ -11,7 +11,7 @@ import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from .functions import run_subprocess, parse_observation_file, list_from_selection, datetime_from_days, days_since_year
+from .functions import run_subprocess, read_observation_data, list_from_selection, datetime_from_days, days_since_year
 from .simstrat import set_simstrat_outputs, simstrat_max_depth
 
 def pest_calibrate(args, log):
@@ -36,13 +36,14 @@ def pest_calibrate(args, log):
         debug = "debug" in args["calibration_options"] and args["calibration_options"]["debug"]
         run_subprocess(cmd, debug=debug)
     log.info("PEST completed, reading output files.")
-    result = pest_output_files(args["calibration_folder"])
+    result = pest_output_files(args["calibration_folder"], args["calibration_options"]["objective_variables"])
     result["observations"] = observations
     return result
 
 def pest_input_files(args, log):
     log.info("Copying model input files", indent=1)
-    copy_model_inputs(args["calibration_folder"], args["simulation_folder"])
+    input_folder = os.path.join(args["calibration_folder"], "inputs")
+    copy_model_inputs(input_folder, args["simulation_folder"])
 
     log.info("Creating PEST .tpl file", indent=1)
     config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
@@ -67,10 +68,10 @@ def pest_input_files(args, log):
 
     if args["simulation"] == "simstrat":
         if times[-1] + relativedelta(days=1) < end_date:
-            log.info("Editing PEST .tpl file to limit stop simulation at last observation", indent=1)
+            log.info("Editing PEST .tpl file to stop simulation at last observation", indent=1)
             overwrite_simstrat_tpl(args["calibration_folder"], times[-1], config["Simulation"]["Reference year"])
         log.info("Setting Simstrat output files", indent=1)
-        set_simstrat_outputs(args["calibration_folder"], times, depths, config["Simulation"]["Reference year"])
+        set_simstrat_outputs(input_folder, times, depths, config["Simulation"]["Reference year"])
 
     log.info("Creating PEST .ins files", indent=1)
     combined_observations = write_pest_ins_file(args["calibration_folder"], args["calibration_options"], args["simulation"], observations, times, depths)
@@ -83,8 +84,7 @@ def pest_input_files(args, log):
         observations_summary[obv["parameter"]] = {"times": len(set(obv["df"].index)), "depths": len(set(obv["df"]["depth"])), "total": len(obv["df"])}
     return observations_summary
 
-def copy_model_inputs(calibration_folder, simulation_folder):
-    output_folder = os.path.join(calibration_folder, "inputs")
+def copy_model_inputs(output_folder, simulation_folder):
     os.makedirs(output_folder)
     for item in os.listdir(simulation_folder):
         file = os.path.join(simulation_folder, item)
@@ -94,30 +94,6 @@ def copy_model_inputs(calibration_folder, simulation_folder):
             shutil.copy2(file, output_folder)
         elif item != "Results":
             shutil.copytree(file, os.path.join(output_folder, item))
-
-def read_observation_data(calibration_options, observations, start_date, end_date, max_depth):
-    times = []
-    depths = []
-    for objective_variable in calibration_options["objective_variables"]:
-        obs_ids = [i for i in range(len(observations)) if observations[i]["parameter"] == objective_variable]
-        if len(obs_ids) != 1:
-            raise ValueError("Cannot find {} observations to calculate residuals".format(objective_variable))
-        obs = observations[obs_ids[0]]
-        start = max(start_date, datetime.fromisoformat(obs["start"]))
-        end = min(end_date, datetime.fromisoformat(obs["end"]))
-        df = parse_observation_file(obs["file"], start, end, max_depth=max_depth)
-        times.extend(df.index.tolist())
-        depths.extend([d for d in df["depth"].tolist() if not np.isnan(d)])
-        observations[obs_ids[0]]["df"] = df
-    times = sorted(set(times))
-    depths = sorted(set(depths))
-    if len(depths) == 1:
-        print("WARNING: Only one depth in observations, only outputting a single depth can lead to unintended model outputs. Adding additional depth that is not calibrated on.")
-        if depths[0] == 0:
-            depths.append(1.0)
-        else:
-            depths.insert(0, depths[0]/2)
-    return times, depths, observations
 
 def write_pest_run_file(calibration_folder, docker_host_calibration_folder, execute, calibration_options):
     if "docker" in calibration_options and not calibration_options["docker"]:
@@ -191,6 +167,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
 
         config["Output"]["Depths"] = "z_out.dat"
         config["Output"]["Times"] = "t_out.dat"
+        config["Output"]["Path"] = "Results"
         config["Output"]["All"] = False
 
         config["Simulation"]["DisplaySimulation"] = 0
@@ -268,7 +245,7 @@ def weighted_rms(g):
     return np.sqrt(g["Residual2*Weight"].sum() / g["Weight"].sum())
 
 
-def pest_output_files(calibration_folder):
+def pest_output_files(calibration_folder, objective_variables):
     if not os.path.exists(os.path.join(calibration_folder, "pest.par")):
         raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
     df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, delim_whitespace=True)
@@ -286,23 +263,28 @@ def pest_output_files(calibration_folder):
         "error": {
             "overall": overall,
             "surface": surface,
-            "bottom": bottom
+            "bottom": bottom,
+            "by_depth": {}
         }
     }
 
-    try:
-        dfd = dfe.groupby("depth_id").apply(
-            lambda g: pd.Series({
-                "rmse": weighted_rms(g),
-                "count": len(g)
-            })).reset_index()
-        result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
-        depths = np.abs(np.loadtxt(result_file, delimiter=",", max_rows=1, dtype=str)[1:].astype(float))
-        dfd["depth_id"] = depths
-        dfd.columns = ["depth", "rmse", "count"]
-        out["error"]["by_depth"] = dfd.to_dict(orient='list')
-    except:
-        print("Failed to extract RMSE error per depth")
+    for objective_variable in objective_variables:
+        if objective_variable == "temperature":
+            try:
+                dfd = dfe.groupby("depth_id").apply(
+                    lambda g: pd.Series({
+                        "rmse": weighted_rms(g),
+                        "count": len(g)
+                    })).reset_index()
+                result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
+                depths = np.abs(np.loadtxt(result_file, delimiter=",", max_rows=1, dtype=str)[1:].astype(float))
+                dfd["depth_id"] = depths
+                dfd.columns = ["depth", "rmse", "count"]
+                out["error"]["by_depth"]["temperature"] = dfd.to_dict(orient='list')
+            except:
+                print("Failed to extract RMSE error per depth for {}".format(objective_variable))
+        else:
+            print("RMSE per depth not implemented for {}".format(objective_variable))
 
     return out
 
@@ -333,8 +315,7 @@ def pest_local(calibration_options, calibration_folder, execute):
     proc = []
     ip_address = socket.gethostbyname(socket.gethostname())
     calibration_folder = os.path.abspath(calibration_folder)
-    cmd = "{} pest.pst /h :{}".format(calibration_options["local_compilation_pest"],
-                                      calibration_options["port"])
+    cmd = [calibration_options["local_compilation_pest"], "pest.pst", "/h", ":{}".format(calibration_options["port"])]
     p = subprocess.Popen(cmd, cwd=calibration_folder)
     proc.append(p)
     for i in range(calibration_options["agents"]):
@@ -349,7 +330,7 @@ def pest_local(calibration_options, calibration_folder, execute):
         if platform.system() == 'Linux':
             with open(os.path.join(agent_dir, "run.sh"), 'w') as file:
                 file.write('#!/bin/bash\n')
-                file.write('cp -r "{}" "{}"/\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
+                file.write('cp -r "{}"/* "{}"/\n'.format(os.path.join(calibration_folder, "inputs"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
             os.chmod(os.path.join(agent_dir, "run.sh"), 0o755)
         else:
@@ -357,8 +338,7 @@ def pest_local(calibration_options, calibration_folder, execute):
                 file.write(
                     'xcopy "{}" "{}" /E /I /Y\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
-        cmd = "{} pest.pst /h {}:{}".format(calibration_options["local_compilation_agent"], ip_address,
-                                            calibration_options["port"])
+        cmd = [calibration_options["local_compilation_agent"], "pest.pst", "/h", "{}:{}".format(ip_address, calibration_options["port"])]
         p = subprocess.Popen(cmd, cwd=agent_dir)
         proc.append(p)
     for p in proc:
