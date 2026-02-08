@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import traceback
 import subprocess
 import pandas as pd
@@ -24,7 +25,8 @@ def run_subprocess(command, debug=False, cwd=None):
 
 def parse_observation_file(file, start, end, max_depth=False):
     df = pd.read_csv(file)
-    df['time'] = pd.to_datetime(df['time'])
+    df['time'] = pd.to_datetime(df['time'], utc=True)
+    df['time'] = df['time'].dt.round('min')
     df = df.drop_duplicates()
     df = df.set_index('time')
     df = df.sort_index()
@@ -51,6 +53,30 @@ def list_from_selection(selection):
         return selection.values
     else:
         return [selection]
+
+def read_observation_data(calibration_options, observations, start_date, end_date, max_depth):
+    times = []
+    depths = []
+    for objective_variable in calibration_options["objective_variables"]:
+        obs_ids = [i for i in range(len(observations)) if observations[i]["parameter"] == objective_variable]
+        if len(obs_ids) != 1:
+            raise ValueError("Cannot find {} observations to calculate residuals".format(objective_variable))
+        obs = observations[obs_ids[0]]
+        start = max(start_date, datetime.fromisoformat(obs["start"]))
+        end = min(end_date, datetime.fromisoformat(obs["end"]))
+        df = parse_observation_file(obs["file"], start, end, max_depth=max_depth)
+        times.extend(df.index.tolist())
+        depths.extend([d for d in df["depth"].tolist() if not np.isnan(d)])
+        observations[obs_ids[0]]["df"] = df
+    times = sorted(set(times))
+    depths = sorted(set(depths))
+    if len(depths) == 1:
+        print("WARNING: Only one depth in observations, only outputting a single depth can lead to unintended model outputs. Adding additional depth that is not calibrated on.")
+        if depths[0] == 0:
+            depths.append(1.0)
+        else:
+            depths.insert(0, depths[0]/2)
+    return times, depths, observations
 
 class Logger(object):
     def __init__(self, path=False, time=True):
