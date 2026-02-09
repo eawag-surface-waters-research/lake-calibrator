@@ -53,7 +53,7 @@ def pest_input_files(args, log):
         else:
             simstrat_config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
 
-    if args["simulation"] == "simstrat":
+    if "simstrat" in args["simulation"]:
         if "burn_in_days" in args["calibration_options"]:
             log.info('Using burn in period of {} days'.format(args["calibration_options"]["burn_in_days"]), indent=2)
             start_date = datetime_from_days(simstrat_config["Simulation"]["Start d"], simstrat_config["Simulation"]["Reference year"]) + relativedelta(days=args["calibration_options"]["burn_in_days"])
