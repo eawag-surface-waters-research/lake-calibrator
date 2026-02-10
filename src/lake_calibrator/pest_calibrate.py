@@ -44,7 +44,7 @@ def pest_calibrate(args, log):
 def pest_input_files(args, log):
     log.info("Copying model input files", indent=1)
     input_folder = os.path.join(args["calibration_folder"], "inputs")
-    copy_model_inputs(input_folder, args["simulation_folder"])
+    copy_model_inputs(input_folder, args["simulation_folder"], args["simulation"])
 
     log.info("Creating PEST .tpl file", indent=1)
     if "simstrat" in args["simulation"]:
@@ -89,12 +89,16 @@ def pest_input_files(args, log):
         observations_summary[obv["parameter"]] = {"times": len(set(obv["df"].index)), "depths": len(set(obv["df"]["depth"])), "total": len(obv["df"])}
     return observations_summary
 
-def copy_model_inputs(output_folder, simulation_folder):
+def copy_model_inputs(output_folder, simulation_folder, simulation):
     os.makedirs(output_folder)
     for item in os.listdir(simulation_folder):
         file = os.path.join(simulation_folder, item)
-        if file.lower().endswith(".par"):
-            continue
+        if "fabm-selmaprotbas" in simulation:
+            if file.lower().endswith(".yaml"):
+                continue
+        if "simstrat" in simulation:
+            if file.lower().endswith(".par"):
+                continue            
         if os.path.isfile(file):
             shutil.copy2(file, output_folder)
         elif item != "Results":
@@ -207,10 +211,15 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
                 fabm_config = yaml.safe_load(file)
 
             for parameter in parameters:
-                instance, param = parameter["name"].split(".")
-                fabm_config["instances"][instance]["parameters"][param] = f"#{parameter['name']}#"
+                if "instance" in parameter:
+                    instance = parameter["instance"]
+                    param = parameter["name"]
+                else:
+                    instance, param = parameter["name"].split(".")
+                fabm_config["instances"][instance]["parameters"][param] = '$$%10s$$' % parameter["name"]
 
             fabm_config_text = yaml.dump(fabm_config)
+            fabm_config_text = fabm_config_text.replace('$$', '#').replace('$$', '#')
 
     else:
         raise ValueError("write_pest_tpl_file not implemented for simulation: {}".format(simulation))
