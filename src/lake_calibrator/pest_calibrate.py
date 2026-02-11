@@ -128,7 +128,7 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
     elif simulation == "simstrat-fabm-selmaprotbas":
         file_dict = {
             "temperature": "Results/T_out.dat",
-            "oyxgen": "Results/selmaprotbas_o2_out.dat",
+            "oxygen": "Results/selmaprotbas_o2_out.dat",
             "phosphate": "Results/selmaprotbas_po_out.dat",
             "nitrate": "Results/selmaprotbas_nn_out.dat",
             "ammonium": "Results/selmaprotbas_aa_out.dat"
@@ -307,9 +307,11 @@ def pest_output_files(calibration_folder, objective_variables):
     overall = float(np.round((dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5,3))
     bottom = float(np.round((dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5,3))
     surface = float(np.round((dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5,3))
-
+    print(df)
+    print(df.iloc[:,0])
+    print(df.iloc[:,1])
     out = {
-        "parameters": dict(zip(np.round(df.iloc[:, 0],5), np.round(df.iloc[:, 1],5))),
+        "parameters": dict(zip(df.iloc[:, 0], np.round(df.iloc[:, 1],5))),
         "error": {
             "overall": overall,
             "surface": surface,
