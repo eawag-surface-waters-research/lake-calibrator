@@ -307,9 +307,6 @@ def pest_output_files(calibration_folder, objective_variables):
     overall = float(np.round((dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5,3))
     bottom = float(np.round((dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5,3))
     surface = float(np.round((dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5,3))
-    print(df)
-    print(df.iloc[:,0])
-    print(df.iloc[:,1])
     out = {
         "parameters": dict(zip(df.iloc[:, 0], np.round(df.iloc[:, 1],5))),
         "error": {
