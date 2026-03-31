@@ -192,6 +192,8 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
         simstrat_config["Simulation"]["Save text restart"] = False
         simstrat_config["Simulation"]["Use text restart"] = False
 
+        simstrat_config["FABMConfig"]["FABMConfigFile"] = "./selmaprotbas.yaml"
+
         if simulation == "simstrat":
             for parameter in parameters:
                 simstrat_config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
