@@ -210,14 +210,19 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
             with open(os.path.join(simulation_folder, fabm_par_files[0]), 'r') as file:
                 fabm_config = yaml.safe_load(file)
 
-            for parameter in parameters:
-                if "instance" in parameter:
-                    instance = parameter["instance"]
-                    param = parameter["name"]
-                else:
-                    instance, param = parameter["name"].split(".")
-                fabm_config["instances"][instance]["parameters"][param] = '$$%10s$$' % parameter["name"]
+        MAXLEN = 12 # Maximum parameter length in pest_hp
 
+        for parameter in parameters:
+            instance, param = parameter["name"].split(".")
+            avail = MAXLEN - len(param) - 1
+
+            if avail < 1:
+                raise ValueError(f"Parameter name '{param}' too long to fit into {MAXLEN} chars")
+
+            short_instance = instance[:avail]
+            parameter["name"] = f"{short_instance}.{param}"
+
+            fabm_config["instances"][instance]["parameters"][param] = f"$$%{MAXLEN}s$$" % parameter["name"]
             fabm_config_text = yaml.dump(fabm_config)
             fabm_config_text = fabm_config_text.replace('$$', '#').replace('$$', '#')
 
@@ -302,16 +307,24 @@ def pest_output_files(calibration_folder, objective_variables):
     dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), sep='\s+')
     dfe["Residual2*Weight"] = dfe["Weight"] * dfe["Residual"] ** 2
     dfe["depth_id"] = dfe['Name'].str.split('_').str[-1].astype(int)
-    dfb = dfe[dfe['depth_id'] == dfe['depth_id'].min()]
-    dfs = dfe[dfe['depth_id'] == dfe['depth_id'].max()]
+    top12_depths = dfe['depth_id'].drop_duplicates().nlargest(12)
+    bottom12_depths = dfe['depth_id'].drop_duplicates().nsmallest(12)
+    dfepi = dfe[dfe['depth_id'].isin(top12_depths)]
+    dfhypo = dfe[dfe['depth_id'].isin(bottom12_depths)]
+    bias = (dfe["Weight"] * dfe["Residual"]).sum() / dfe["Weight"].sum()
+    epi_bias = (dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum()
+    hypo_bias = (dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum()
     overall = float(np.round((dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5,3))
-    bottom = float(np.round((dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5,3))
-    surface = float(np.round((dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5,3))
+    bottom = float(np.round((dfhypo['Residual2*Weight'].sum() / dfhypo["Weight"].sum()) ** 0.5,3))
+    surface = float(np.round((dfepi['Residual2*Weight'].sum() / dfepi["Weight"].sum()) ** 0.5,3))
     out = {
         "parameters": dict(zip(df.iloc[:, 0], np.round(df.iloc[:, 1],7))),
         "error": {
+            "bias": bias,
+            "epilimnion bias": epi_bias,
+            "bottom bias": hypo_bias,
             "overall": overall,
-            "surface": surface,
+            "epilimnion": surface,
             "bottom": bottom,
             "by_depth": {}
         }
