@@ -122,7 +122,8 @@ def write_pest_run_file(calibration_folder, docker_host_calibration_folder, exec
 def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simulation, calibration_options, combined_observations, run_file):
     if simulation == "simstrat":
         file_dict = {
-            "temperature": "Results/T_out.dat"
+            "temperature": "Results/T_out.dat",
+            "oxygen": "Results/selmaprotbas_o2_out.dat"
         }
         par_file = "Calibration.par"
     elif simulation == "simstrat-fabm-selmaprotbas":
@@ -192,14 +193,13 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
         simstrat_config["Simulation"]["Save text restart"] = False
         simstrat_config["Simulation"]["Use text restart"] = False
 
-        simstrat_config["FABMConfig"]["FABMConfigFile"] = "./selmaprotbas.yaml"
-
         if simulation == "simstrat":
             for parameter in parameters:
                 simstrat_config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
 
         elif "simstrat" in simulation and "fabm" in simulation:
             simstrat_config["ModelConfig"]["CoupleFABM"] = True
+            simstrat_config["FABMConfig"]["FABMConfigFile"] = "./selmaprotbas.yaml"
 
         simstrat_config_text = json.dumps(simstrat_config)
         simstrat_config_text = simstrat_config_text.replace('$$"', '#"').replace('"$$', '"#')
@@ -212,21 +212,21 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
             with open(os.path.join(simulation_folder, fabm_par_files[0]), 'r') as file:
                 fabm_config = yaml.safe_load(file)
 
-        MAXLEN = 12 # Maximum parameter length in pest_hp
+            MAXLEN = 12 # Maximum parameter length in pest_hp
 
-        for parameter in parameters:
-            instance, param = parameter["name"].split(".")
-            avail = MAXLEN - len(param) - 1
+            for parameter in parameters:
+                instance, param = parameter["name"].split(".")
+                avail = MAXLEN - len(param) - 1
 
-            if avail < 1:
-                raise ValueError(f"Parameter name '{param}' too long to fit into {MAXLEN} chars")
+                if avail < 1:
+                    raise ValueError(f"Parameter name '{param}' too long to fit into {MAXLEN} chars")
 
-            short_instance = instance[:avail]
-            parameter["name"] = f"{short_instance}.{param}"
+                short_instance = instance[:avail]
+                parameter["name"] = f"{short_instance}.{param}"
 
-            fabm_config["instances"][instance]["parameters"][param] = f"$$%{MAXLEN}s$$" % parameter["name"]
-            fabm_config_text = yaml.dump(fabm_config)
-            fabm_config_text = fabm_config_text.replace('$$', '#').replace('$$', '#')
+                fabm_config["instances"][instance]["parameters"][param] = f"$$%{MAXLEN}s$$" % parameter["name"]
+                fabm_config_text = yaml.dump(fabm_config)
+                fabm_config_text = fabm_config_text.replace('$$', '#').replace('$$', '#')
 
     else:
         raise ValueError("write_pest_tpl_file not implemented for simulation: {}".format(simulation))
