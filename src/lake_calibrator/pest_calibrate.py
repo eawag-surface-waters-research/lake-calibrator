@@ -216,9 +216,9 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
 
             for parameter in parameters:
                 instance, param = parameter["name"].split(".")
-                avail = MAXLEN - len(param) - 1
+                avail = MAXLEN - len(param)
 
-                if avail < 1:
+                if avail < 0:
                     raise ValueError(f"Parameter name '{param}' too long to fit into {MAXLEN} chars")
 
                 short_instance = instance[:avail]
