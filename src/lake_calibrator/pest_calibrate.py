@@ -307,30 +307,37 @@ def pest_output_files(calibration_folder, objective_variables):
         raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
     df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, sep='\s+')
     dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), sep='\s+')
-    dfe["Residual2*Weight"] = dfe["Weight"] * dfe["Residual"] ** 2
-    dfe["depth_id"] = dfe['Name'].str.split('_').str[-1].astype(int)
-    top12_depths = dfe['depth_id'].drop_duplicates().nlargest(12)
-    bottom12_depths = dfe['depth_id'].drop_duplicates().nsmallest(12)
-    dfepi = dfe[dfe['depth_id'].isin(top12_depths)]
-    dfhypo = dfe[dfe['depth_id'].isin(bottom12_depths)]
-    bias = (dfe["Weight"] * dfe["Residual"]).sum() / dfe["Weight"].sum()
-    epi_bias = (dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum()
-    hypo_bias = (dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum()
-    overall = float(np.round((dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5,3))
-    bottom = float(np.round((dfhypo['Residual2*Weight'].sum() / dfhypo["Weight"].sum()) ** 0.5,3))
-    surface = float(np.round((dfepi['Residual2*Weight'].sum() / dfepi["Weight"].sum()) ** 0.5,3))
-    out = {
-        "parameters": dict(zip(df.iloc[:, 0], np.round(df.iloc[:, 1],7))),
-        "error": {
+
+    out = {   # initialize ONCE
+    "parameters": dict(zip(df.iloc[:, 0], np.round(df.iloc[:, 1], 7))),
+    "error": {}
+    }
+
+    variable_groups = dfe["Group"].unique()
+    print(variable_groups)
+    for group in variable_groups:
+        dfe_group = dfe[dfe["Group"] == group]
+        dfe_group["Residual2*Weight"] = dfe_group["Weight"] * dfe_group["Residual"] ** 2
+        dfe_group["depth_id"] = dfe_group['Name'].str.split('_').str[-1].astype(int)
+        top_depths = dfe_group['depth_id'].drop_duplicates().nlargest(6)
+        bottom_depths = dfe_group['depth_id'].drop_duplicates().nsmallest(6)
+        dfepi = dfe_group[dfe_group['depth_id'].isin(top_depths)]
+        dfhypo = dfe_group[dfe_group['depth_id'].isin(bottom_depths)]
+        bias = float(np.round(((dfe_group["Weight"] * dfe_group["Residual"]).sum() / dfe_group["Weight"].sum()) ** 0.5,3))
+        epi_bias = float(np.round(((dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum()) ** 0.5,3))
+        hypo_bias = float(np.round(((dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum()) ** 0.5,3))
+        overall = float(np.round((dfe_group['Residual2*Weight'].sum() / dfe_group["Weight"].sum()) ** 0.5,3))
+        bottom = float(np.round((dfhypo['Residual2*Weight'].sum() / dfhypo["Weight"].sum()) ** 0.5,3))
+        surface = float(np.round((dfepi['Residual2*Weight'].sum() / dfepi["Weight"].sum()) ** 0.5,3))
+        out["error"][group] = {
             "bias": bias,
             "epilimnion bias": epi_bias,
             "bottom bias": hypo_bias,
-            "overall": overall,
-            "epilimnion": surface,
-            "bottom": bottom,
+            "rmse": overall,
+            "epilimnion rmse": surface,
+            "bottom rmse": bottom,
             "by_depth": {}
         }
-    }
 
     for objective_variable in objective_variables:
         if objective_variable == "temperature":
