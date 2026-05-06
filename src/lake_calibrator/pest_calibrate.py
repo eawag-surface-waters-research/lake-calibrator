@@ -221,7 +221,7 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
                 if avail < 0:
                     raise ValueError(f"Parameter name '{param}' too long to fit into {MAXLEN} chars")
 
-                short_instance = instance[:avail]
+                short_instance = instance[:avail-1]
                 parameter["name"] = f"{short_instance}.{param}"
 
                 fabm_config["instances"][instance]["parameters"][param] = f"$$%{MAXLEN}s$$" % parameter["name"]
