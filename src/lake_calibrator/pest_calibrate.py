@@ -314,28 +314,41 @@ def pest_output_files(calibration_folder, objective_variables):
     }
 
     variable_groups = dfe["Group"].unique()
-    print(variable_groups)
     for group in variable_groups:
-        dfe_group = dfe[dfe["Group"] == group]
+        dfe_group = dfe[dfe["Group"] == group].copy()
         dfe_group["Residual2*Weight"] = dfe_group["Weight"] * dfe_group["Residual"] ** 2
         dfe_group["depth_id"] = dfe_group['Name'].str.split('_').str[-1].astype(int)
+
+        # Define epi- and hypolimnion
         top_depths = dfe_group['depth_id'].drop_duplicates().nlargest(6)
         bottom_depths = dfe_group['depth_id'].drop_duplicates().nsmallest(6)
         dfepi = dfe_group[dfe_group['depth_id'].isin(top_depths)]
         dfhypo = dfe_group[dfe_group['depth_id'].isin(bottom_depths)]
-        bias = float(np.round(((dfe_group["Weight"] * dfe_group["Residual"]).sum() / dfe_group["Weight"].sum()) ** 0.5,3))
-        epi_bias = float(np.round(((dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum()) ** 0.5,3))
-        hypo_bias = float(np.round(((dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum()) ** 0.5,3))
-        overall = float(np.round((dfe_group['Residual2*Weight'].sum() / dfe_group["Weight"].sum()) ** 0.5,3))
-        bottom = float(np.round((dfhypo['Residual2*Weight'].sum() / dfhypo["Weight"].sum()) ** 0.5,3))
-        surface = float(np.round((dfepi['Residual2*Weight'].sum() / dfepi["Weight"].sum()) ** 0.5,3))
+
+        # Bias
+        bias = float(np.round((dfe_group["Weight"] * dfe_group["Residual"]).sum() / dfe_group["Weight"].sum(),3))
+        epi_bias = float(np.round((dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum(),3))
+        hypo_bias = float(np.round((dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum(),3))
+
+        # Mean absolute error
+        mae = float(np.round((dfe_group["Weight"] * np.abs(dfe_group["Residual"])).sum() / dfe_group["Weight"].sum(),3))
+        epi_mae = float(np.round((dfepi["Weight"] * np.abs(dfepi["Residual"])).sum() / dfepi["Weight"].sum(),3))
+        hypo_mae = float(np.round((dfhypo["Weight"] * np.abs(dfhypo["Residual"])).sum() / dfhypo["Weight"].sum(),3))
+
+        # RMSE
+        rmse = float(np.round((dfe_group['Residual2*Weight'].sum() / dfe_group["Weight"].sum()) ** 0.5,3))
+        epi_rmse = float(np.round((dfepi['Residual2*Weight'].sum() / dfepi["Weight"].sum()) ** 0.5,3))
+        hypo_rmse = float(np.round((dfhypo['Residual2*Weight'].sum() / dfhypo["Weight"].sum()) ** 0.5,3))
         out["error"][group] = {
             "bias": bias,
             "epilimnion bias": epi_bias,
             "bottom bias": hypo_bias,
-            "rmse": overall,
-            "epilimnion rmse": surface,
-            "bottom rmse": bottom,
+            "mae": mae,
+            "epilimnion mae": epi_mae,
+            "bottom mae": hypo_mae,
+            "rmse": rmse,
+            "epilimnion rmse": epi_rmse,
+            "bottom rmse": hypo_rmse,
             "by_depth": {}
         }
 
