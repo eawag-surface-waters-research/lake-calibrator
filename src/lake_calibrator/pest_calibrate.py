@@ -1,5 +1,6 @@
 import os
 import json
+import yaml
 import time
 import shutil
 import socket
@@ -43,22 +44,26 @@ def pest_calibrate(args, log):
 def pest_input_files(args, log):
     log.info("Copying model input files", indent=1)
     input_folder = os.path.join(args["calibration_folder"], "inputs")
-    copy_model_inputs(input_folder, args["simulation_folder"])
+    copy_model_inputs(input_folder, args["simulation_folder"], args["simulation"])
 
     log.info("Creating PEST .tpl file", indent=1)
-    config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
+    if "simstrat" in args["simulation"]:
+        if "fabm" in args["simulation"]:
+            simstrat_config, fabm_config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
+        else:
+            simstrat_config = write_pest_tpl_file(args["calibration_folder"], args["simulation_folder"], args["parameters"], args["simulation"])
 
-    if args["simulation"] == "simstrat":
+    if "simstrat" in args["simulation"]:
         if "burn_in_days" in args["calibration_options"]:
             log.info('Using burn in period of {} days'.format(args["calibration_options"]["burn_in_days"]), indent=2)
-            start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(days=args["calibration_options"]["burn_in_days"])
+            start_date = datetime_from_days(simstrat_config["Simulation"]["Start d"], simstrat_config["Simulation"]["Reference year"]) + relativedelta(days=args["calibration_options"]["burn_in_days"])
         else:
             log.info('"burn_in_days" not defined in calibration_options, using default of 365 days', indent=2)
-            start_date = datetime_from_days(config["Simulation"]["Start d"], config["Simulation"]["Reference year"]) + relativedelta(years=1)
-        end_date = datetime_from_days(config["Simulation"]["End d"], config["Simulation"]["Reference year"])
-        max_depth = simstrat_max_depth(args["simulation_folder"], config["Input"]["Morphology"])
+            start_date = datetime_from_days(simstrat_config["Simulation"]["Start d"], simstrat_config["Simulation"]["Reference year"]) + relativedelta(years=1)
+        end_date = datetime_from_days(simstrat_config["Simulation"]["End d"], simstrat_config["Simulation"]["Reference year"])
+        max_depth = simstrat_max_depth(args["simulation_folder"], simstrat_config["Input"]["Morphology"])
     else:
-        raise ValueError("Input files not implemented for {}".format(args["simulation"]))
+         raise ValueError("Input files not implemented for {}".format(args["simulation"]))
 
     log.info("Reading observation data", indent=1)
     times, depths, observations = read_observation_data(args["calibration_options"], args["observations"], start_date, end_date, max_depth)
@@ -66,12 +71,12 @@ def pest_input_files(args, log):
     log.info("Creating PEST run file", indent=1)
     run_file = write_pest_run_file(args["calibration_folder"], args["docker_host_calibration_folder"], args["execute"], args["calibration_options"])
 
-    if args["simulation"] == "simstrat":
+    if "simstrat" in args["simulation"]:
         if times[-1] + relativedelta(days=1) < end_date:
             log.info("Editing PEST .tpl file to stop simulation at last observation", indent=1)
-            overwrite_simstrat_tpl(args["calibration_folder"], times[-1], config["Simulation"]["Reference year"])
+            overwrite_simstrat_tpl(args["calibration_folder"], times[-1], simstrat_config["Simulation"]["Reference year"])
         log.info("Setting Simstrat output files", indent=1)
-        set_simstrat_outputs(input_folder, times, depths, config["Simulation"]["Reference year"])
+        set_simstrat_outputs(input_folder, times, depths, simstrat_config["Simulation"]["Reference year"])
 
     log.info("Creating PEST .ins files", indent=1)
     combined_observations = write_pest_ins_file(args["calibration_folder"], args["calibration_options"], args["simulation"], observations, times, depths)
@@ -84,12 +89,16 @@ def pest_input_files(args, log):
         observations_summary[obv["parameter"]] = {"times": len(set(obv["df"].index)), "depths": len(set(obv["df"]["depth"])), "total": len(obv["df"])}
     return observations_summary
 
-def copy_model_inputs(output_folder, simulation_folder):
+def copy_model_inputs(output_folder, simulation_folder, simulation):
     os.makedirs(output_folder)
     for item in os.listdir(simulation_folder):
         file = os.path.join(simulation_folder, item)
-        if file.lower().endswith(".par"):
-            continue
+        if "fabm-selmaprotbas" in simulation:
+            if file.lower().endswith(".yaml"):
+                continue
+        if "simstrat" in simulation:
+            if file.lower().endswith(".par"):
+                continue            
         if os.path.isfile(file):
             shutil.copy2(file, output_folder)
         elif item != "Results":
@@ -113,9 +122,19 @@ def write_pest_run_file(calibration_folder, docker_host_calibration_folder, exec
 def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simulation, calibration_options, combined_observations, run_file):
     if simulation == "simstrat":
         file_dict = {
-            "temperature": "Results/T_out.dat"
+            "temperature": "Results/T_out.dat",
+            "oxygen": "Results/selmaprotbas_o2_out.dat"
         }
         par_file = "Calibration.par"
+    elif simulation == "simstrat-fabm-selmaprotbas":
+        file_dict = {
+            "temperature": "Results/T_out.dat",
+            "oxygen": "Results/selmaprotbas_o2_out.dat",
+            "phosphate": "Results/selmaprotbas_po_out.dat",
+            "nitrate": "Results/selmaprotbas_nn_out.dat",
+            "ammonium": "Results/selmaprotbas_aa_out.dat"
+        }
+        par_file = "selmaprotbas.yaml"
 
     with open(os.path.join(calibration_folder, "pest.pst"), 'w') as file:
         file.write('pcf\n')
@@ -154,37 +173,75 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
         file.write('* prior information\n')
 
 def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simulation):
-    if simulation == "simstrat":
-        par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
-        if len(par_files) != 1:
-            raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(par_files)))
-        if par_files[0] == "Calibration.par":
+    if "simstrat" in simulation:
+        simstrat_par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".par")]
+        if len(simstrat_par_files) != 1:
+            raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(simstrat_par_files)))
+        if simstrat_par_files[0] == "Calibration.par":
             raise ValueError("PAR file must not be called Calibration.par, this will cause PEST to fail.")
-        with open(os.path.join(simulation_folder, par_files[0]), 'r') as file:
-            config = json.load(file)
-        for parameter in parameters:
-            config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+        with open(os.path.join(simulation_folder, simstrat_par_files[0]), 'r') as file:
+            simstrat_config = json.load(file)
 
-        config["Output"]["Depths"] = "z_out.dat"
-        config["Output"]["Times"] = "t_out.dat"
-        config["Output"]["Path"] = "Results"
-        config["Output"]["All"] = False
+        simstrat_config["Output"]["Depths"] = "z_out.dat"
+        simstrat_config["Output"]["Times"] = "t_out.dat"
+        simstrat_config["Output"]["Path"] = "Results"
+        simstrat_config["Output"]["All"] = False
 
-        config["Simulation"]["DisplaySimulation"] = 0
-        config["Simulation"]["Continue from last snapshot"] = False
-        config["Simulation"]["Show progress bar"] = False
-        config["Simulation"]["Save text restart"] = False
-        config["Simulation"]["Use text restart"] = False
+        simstrat_config["Simulation"]["DisplaySimulation"] = 0
+        simstrat_config["Simulation"]["Continue from last snapshot"] = False
+        simstrat_config["Simulation"]["Show progress bar"] = False
+        simstrat_config["Simulation"]["Save text restart"] = False
+        simstrat_config["Simulation"]["Use text restart"] = False
 
-        config_text = json.dumps(config)
-        config_text = config_text.replace('$$"', '#"').replace('"$$', '"#')
-        config_text = config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
+        if simulation == "simstrat":
+            for parameter in parameters:
+                simstrat_config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+
+        elif "simstrat" in simulation and "fabm" in simulation:
+            simstrat_config["ModelConfig"]["CoupleFABM"] = True
+            simstrat_config["FABMConfig"]["FABMConfigFile"] = "./selmaprotbas.yaml"
+
+        simstrat_config_text = json.dumps(simstrat_config)
+        simstrat_config_text = simstrat_config_text.replace('$$"', '#"').replace('"$$', '"#')
+        simstrat_config_text = simstrat_config_text.replace('}', '\n}').replace(', ', ',\n').replace('{', '{\n')
+
+        if "fabm" in simulation:
+            fabm_par_files = [file for file in os.listdir(simulation_folder) if file.endswith(".yaml")]
+            if len(fabm_par_files) != 1:
+                raise ValueError("Only 1 PAR file permitted in simulation folder ({} detected)".format(len(fabm_par_files)))
+            with open(os.path.join(simulation_folder, fabm_par_files[0]), 'r') as file:
+                fabm_config = yaml.safe_load(file)
+
+            MAXLEN = 12 # Maximum parameter length in pest_hp
+
+            for parameter in parameters:
+                instance, param = parameter["name"].split(".")
+                avail = MAXLEN - len(param)
+
+                if avail < 0:
+                    raise ValueError(f"Parameter name '{param}' too long to fit into {MAXLEN} chars")
+
+                short_instance = instance[:avail-1]
+                parameter["name"] = f"{short_instance}.{param}"
+
+                fabm_config["instances"][instance]["parameters"][param] = f"$$%{MAXLEN}s$$" % parameter["name"]
+                fabm_config_text = yaml.dump(fabm_config)
+                fabm_config_text = fabm_config_text.replace('$$', '#').replace('$$', '#')
+
     else:
         raise ValueError("write_pest_tpl_file not implemented for simulation: {}".format(simulation))
-    with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
-        file.write('ptf #\n')
-        file.write(config_text)
-    return config
+    if simulation == "simstrat":
+        with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
+            file.write('ptf #\n')
+            file.write(simstrat_config_text)
+        return simstrat_config
+    elif "simstrat" in simulation and "fabm" in simulation:
+        with open(os.path.join(calibration_folder, "Calibration.par"), 'w') as file:
+            file.write(simstrat_config_text)
+        with open(os.path.join(calibration_folder, "pest.tpl"), 'w') as file:
+            file.write('ptf #\n')
+            file.write(fabm_config_text)
+        return simstrat_config, fabm_config
 
 def overwrite_simstrat_tpl(calibration_folder, end_date, reference_year):
     with open(os.path.join(calibration_folder, "pest.tpl"), 'r') as file:
@@ -204,14 +261,14 @@ def overwrite_simstrat_tpl(calibration_folder, end_date, reference_year):
 def write_pest_ins_file(calibration_folder, calibration_options, simulation, observations, times, depths):
     combined_observations = []
     depths_desc = sorted(depths, reverse=True)
-    for objective_variable in calibration_options["objective_variables"]:
+    for k, objective_variable in enumerate(calibration_options["objective_variables"]):
         obs_ids = [i for i in range(len(observations)) if observations[i]["parameter"] == objective_variable]
         if len(obs_ids) != 1:
             raise ValueError("Cannot find {} observations to calculate residuals".format(objective_variable))
         df = observations[obs_ids[0]]["df"]
         with open(os.path.join(calibration_folder, "{}.ins".format(objective_variable)), 'w') as file:
             file.write('pif @\n')
-            if simulation == "simstrat":
+            if "simstrat" in simulation:
                 file.write('l1\n')
                 for i, t in enumerate(times):
                     if t in df.index:
@@ -227,7 +284,7 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                                 combined_observations.append({
                                     'id': f"{objective_variable[0]}_{i}_{j}",
                                     'value': row["value"],
-                                    'weight': row["weight"],
+                                    'weight': row["weight"]*calibration_options["objective_weights"][k],
                                     'group': objective_variable
                                 })
                             else:
@@ -242,31 +299,58 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
 
 
 def weighted_rms(g):
-    return np.sqrt(g["Residual2*Weight"].sum() / g["Weight"].sum())
+    return np.round(np.sqrt(g["Residual2*Weight"].sum() / g["Weight"].sum()),3)
 
 
 def pest_output_files(calibration_folder, objective_variables):
     if not os.path.exists(os.path.join(calibration_folder, "pest.par")):
         raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
-    df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, delim_whitespace=True)
-    dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), delim_whitespace=True)
-    dfe["Residual2*Weight"] = dfe["Weight"] * dfe["Residual"] ** 2
-    dfe["depth_id"] = dfe['Name'].str.split('_').str[-1].astype(int)
-    dfb = dfe[dfe['depth_id'] == dfe['depth_id'].min()]
-    dfs = dfe[dfe['depth_id'] == dfe['depth_id'].max()]
-    overall = (dfe['Residual2*Weight'].sum() / dfe["Weight"].sum()) ** 0.5
-    bottom = (dfb['Residual2*Weight'].sum() / dfb["Weight"].sum()) ** 0.5
-    surface = (dfs['Residual2*Weight'].sum() / dfs["Weight"].sum()) ** 0.5
+    df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, sep='\s+')
+    dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), sep='\s+')
 
-    out = {
-        "parameters": dict(zip(df.iloc[:, 0], df.iloc[:, 1])),
-        "error": {
-            "overall": overall,
-            "surface": surface,
-            "bottom": bottom,
+    out = {   # initialize ONCE
+    "parameters": dict(zip(df.iloc[:, 0], np.round(df.iloc[:, 1], 7))),
+    "error": {}
+    }
+
+    variable_groups = dfe["Group"].unique()
+    for group in variable_groups:
+        dfe_group = dfe[dfe["Group"] == group].copy()
+        dfe_group["Residual2*Weight"] = dfe_group["Weight"] * dfe_group["Residual"] ** 2
+        dfe_group["depth_id"] = dfe_group['Name'].str.split('_').str[-1].astype(int)
+
+        # Define epi- and hypolimnion
+        top_depths = dfe_group['depth_id'].drop_duplicates().nlargest(6)
+        bottom_depths = dfe_group['depth_id'].drop_duplicates().nsmallest(6)
+        dfepi = dfe_group[dfe_group['depth_id'].isin(top_depths)]
+        dfhypo = dfe_group[dfe_group['depth_id'].isin(bottom_depths)]
+
+        # Bias
+        bias = float(np.round((dfe_group["Weight"] * dfe_group["Residual"]).sum() / dfe_group["Weight"].sum(),3))
+        epi_bias = float(np.round((dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum(),3))
+        hypo_bias = float(np.round((dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum(),3))
+
+        # Mean absolute error
+        mae = float(np.round((dfe_group["Weight"] * np.abs(dfe_group["Residual"])).sum() / dfe_group["Weight"].sum(),3))
+        epi_mae = float(np.round((dfepi["Weight"] * np.abs(dfepi["Residual"])).sum() / dfepi["Weight"].sum(),3))
+        hypo_mae = float(np.round((dfhypo["Weight"] * np.abs(dfhypo["Residual"])).sum() / dfhypo["Weight"].sum(),3))
+
+        # RMSE
+        rmse = float(np.round((dfe_group['Residual2*Weight'].sum() / dfe_group["Weight"].sum()) ** 0.5,3))
+        epi_rmse = float(np.round((dfepi['Residual2*Weight'].sum() / dfepi["Weight"].sum()) ** 0.5,3))
+        hypo_rmse = float(np.round((dfhypo['Residual2*Weight'].sum() / dfhypo["Weight"].sum()) ** 0.5,3))
+        out["error"][group] = {
+            "bias": bias,
+            "epilimnion bias": epi_bias,
+            "bottom bias": hypo_bias,
+            "mae": mae,
+            "epilimnion mae": epi_mae,
+            "bottom mae": hypo_mae,
+            "rmse": rmse,
+            "epilimnion rmse": epi_rmse,
+            "bottom rmse": hypo_rmse,
             "by_depth": {}
         }
-    }
 
     for objective_variable in objective_variables:
         if objective_variable == "temperature":
@@ -322,7 +406,7 @@ def pest_local(calibration_options, calibration_folder, execute):
         agent_dir = os.path.join(calibration_folder, f"agent{i}")
         os.makedirs(agent_dir, exist_ok=True)
         for file in os.listdir(calibration_folder):
-            if file.endswith((".pst", ".tpl", ".ins", ".sh")):
+            if file.endswith((".pst", ".tpl", ".ins", ".sh", ".par")):
                 try:
                     shutil.copy(os.path.join(calibration_folder, file), agent_dir)
                 except FileNotFoundError:
@@ -336,7 +420,7 @@ def pest_local(calibration_options, calibration_folder, execute):
         else:
             with open(os.path.join(agent_dir, "run.bat"), 'w') as file:
                 file.write(
-                    'xcopy "{}" "{}" /E /I /Y\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
+                    'xcopy "{}" "{}" /E /I /Y /Q\n'.format(os.path.join(calibration_folder, "inputs", "*"), agent_dir))
                 file.write(execute.format(calibration_folder=agent_dir))
         cmd = [calibration_options["local_compilation_agent"], "pest.pst", "/h", "{}:{}".format(ip_address, calibration_options["port"])]
         p = subprocess.Popen(cmd, cwd=agent_dir)
