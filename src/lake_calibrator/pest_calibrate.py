@@ -261,7 +261,7 @@ def overwrite_simstrat_tpl(calibration_folder, end_date, reference_year):
 def write_pest_ins_file(calibration_folder, calibration_options, simulation, observations, times, depths):
     combined_observations = []
     depths_desc = sorted(depths, reverse=True)
-    for objective_variable in calibration_options["objective_variables"]:
+    for k, objective_variable in enumerate(calibration_options["objective_variables"]):
         obs_ids = [i for i in range(len(observations)) if observations[i]["parameter"] == objective_variable]
         if len(obs_ids) != 1:
             raise ValueError("Cannot find {} observations to calculate residuals".format(objective_variable))
@@ -284,7 +284,7 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                                 combined_observations.append({
                                     'id': f"{objective_variable[0]}_{i}_{j}",
                                     'value': row["value"],
-                                    'weight': row["weight"],
+                                    'weight': row["weight"]*calibration_options["objective_weights"][k],
                                     'group': objective_variable
                                 })
                             else:
