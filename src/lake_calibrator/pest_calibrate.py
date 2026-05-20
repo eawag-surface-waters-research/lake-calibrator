@@ -123,14 +123,22 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
     if simulation == "simstrat":
         file_dict = {
             "temperature": "Results/T_out.dat",
-            "oxygen": "Results/selmaprotbas_o2_out.dat"
+            "hypo_temp": "Results/T_hypo_out.dat",
+            "hypo_oxy": "Results/O2_hypo_out.dat",
+            "oxygen": "Results/selmaprotbas_o2_out.dat",
+            "phosphate": "Results/selmaprotbas_po_out.dat",
+            "tot_phos": "Results/total_phosphorus_out.dat",
+            "nitrate": "Results/selmaprotbas_nn_out.dat"
         }
         par_file = "Calibration.par"
     elif simulation == "simstrat-fabm-selmaprotbas":
         file_dict = {
             "temperature": "Results/T_out.dat",
+            "hypo_temp": "Results/T_hypo_out.dat",
+            "hypo_oxy": "Results/O2_hypo_out.dat",
             "oxygen": "Results/selmaprotbas_o2_out.dat",
             "phosphate": "Results/selmaprotbas_po_out.dat",
+            "tot_phos": "Results/total_phosphorus_out.dat",
             "nitrate": "Results/selmaprotbas_nn_out.dat",
             "ammonium": "Results/selmaprotbas_aa_out.dat"
         }
@@ -326,9 +334,9 @@ def pest_output_files(calibration_folder, objective_variables):
         dfhypo = dfe_group[dfe_group['depth_id'].isin(bottom_depths)]
 
         # Bias
-        bias = float(np.round((dfe_group["Weight"] * dfe_group["Residual"]).sum() / dfe_group["Weight"].sum(),3))
-        epi_bias = float(np.round((dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum(),3))
-        hypo_bias = float(np.round((dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum(),3))
+        bias = -float(np.round((dfe_group["Weight"] * dfe_group["Residual"]).sum() / dfe_group["Weight"].sum(),3))
+        epi_bias = -float(np.round((dfepi["Weight"] * dfepi["Residual"]).sum() / dfepi["Weight"].sum(),3))
+        hypo_bias = -float(np.round((dfhypo["Weight"] * dfhypo["Residual"]).sum() / dfhypo["Weight"].sum(),3))
 
         # Mean absolute error
         mae = float(np.round((dfe_group["Weight"] * np.abs(dfe_group["Residual"])).sum() / dfe_group["Weight"].sum(),3))
