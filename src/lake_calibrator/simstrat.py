@@ -99,7 +99,8 @@ def simstrat_rms(objective_variables, objective_weights, observations, reference
             lambda g: pd.Series({
                 "rmse": (g['residuals'].sum() / g['obj_weights'].sum()) ** 0.5,
                 "count": len(g)
-            })
+            }),
+            include_groups=False,
         ).reset_index()
         dfd.columns = ["depth", "rmse", "count"]
         by_depth[objective_variable] = dfd.to_dict(orient='list')
@@ -138,5 +139,5 @@ def set_simstrat_outputs(calibration_folder, times, depths, reference_year):
             file.write("%.4f\n" % days_since_year(t, reference_year))
 
 def simstrat_max_depth(simulation_folder, bathymetry_file):
-    df = pd.read_csv(os.path.join(simulation_folder, bathymetry_file), skiprows=1, sep='\s+', header=None)
+    df = pd.read_csv(os.path.join(simulation_folder, bathymetry_file), skiprows=1, sep=r'\s+', header=None)
     return abs(df.iloc[:, 0].min())

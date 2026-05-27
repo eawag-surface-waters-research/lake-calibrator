@@ -248,8 +248,8 @@ def weighted_rms(g):
 def pest_output_files(calibration_folder, objective_variables):
     if not os.path.exists(os.path.join(calibration_folder, "pest.par")):
         raise ValueError("PEST failed to complete, run in debug mode to see log for more details.")
-    df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, delim_whitespace=True)
-    dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), delim_whitespace=True)
+    df = pd.read_csv(os.path.join(calibration_folder, "pest.par"), skiprows=1, header=None, sep=r'\s+')
+    dfe = pd.read_csv(os.path.join(calibration_folder, "pest.res"), sep=r'\s+')
     dfe["Residual2*Weight"] = dfe["Weight"] * dfe["Residual"] ** 2
     dfe["depth_id"] = dfe['Name'].str.split('_').str[-1].astype(int)
     dfb = dfe[dfe['depth_id'] == dfe['depth_id'].min()]
@@ -275,7 +275,9 @@ def pest_output_files(calibration_folder, objective_variables):
                     lambda g: pd.Series({
                         "rmse": weighted_rms(g),
                         "count": len(g)
-                    })).reset_index()
+                    }),
+                    include_groups=False,
+                ).reset_index()
                 result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
                 depths = np.abs(np.loadtxt(result_file, delimiter=",", max_rows=1, dtype=str)[1:].astype(float))
                 dfd["depth_id"] = depths
