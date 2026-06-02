@@ -281,8 +281,10 @@ def pest_output_files(calibration_folder, objective_variables):
                 depths = np.abs(np.loadtxt(
                     os.path.join(calibration_folder, "inputs", "z_out.dat"), skiprows=1
                 ))
-                dfd["depth"] = depths[dfd["depth_id"].astype(int).to_numpy()]
+                depths_desc = np.sort(depths)[::-1]
+                dfd["depth"] = depths_desc[dfd["depth_id"].astype(int).to_numpy()]
                 dfd["rmse"] = dfd["rmse"].round(2)
+                dfd = dfd.sort_values("depth").reset_index(drop=True)
                 dfd = dfd[["depth", "rmse", "count"]]
                 out["error"]["by_depth"]["temperature"] = dfd.to_dict(orient='list')
             except Exception as e:
