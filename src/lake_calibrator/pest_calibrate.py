@@ -278,13 +278,14 @@ def pest_output_files(calibration_folder, objective_variables):
                     }),
                     include_groups=False,
                 ).reset_index()
-                result_file = os.path.join(calibration_folder, "agent1/Results/T_out.dat")
-                depths = np.abs(np.loadtxt(result_file, delimiter=",", max_rows=1, dtype=str)[1:].astype(float))
-                dfd["depth_id"] = depths
-                dfd.columns = ["depth", "rmse", "count"]
+                depths = np.abs(np.loadtxt(
+                    os.path.join(calibration_folder, "z_out.dat"), skiprows=1
+                ))
+                dfd["depth"] = depths[dfd["depth_id"].astype(int).to_numpy()]
+                dfd = dfd[["depth", "rmse", "count"]]
                 out["error"]["by_depth"]["temperature"] = dfd.to_dict(orient='list')
-            except:
-                print("Failed to extract RMSE error per depth for {}".format(objective_variable))
+            except Exception as e:
+                print("Failed to extract RMSE error per depth for {}: {}".format(objective_variable, e))
         else:
             print("RMSE per depth not implemented for {}".format(objective_variable))
 
