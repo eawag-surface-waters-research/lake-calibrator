@@ -279,7 +279,7 @@ def pest_output_files(calibration_folder, objective_variables):
                     include_groups=False,
                 ).reset_index()
                 depths = np.abs(np.loadtxt(
-                    os.path.join(calibration_folder, "z_out.dat"), skiprows=1
+                    os.path.join(calibration_folder, "inputs", "z_out.dat"), skiprows=1
                 ))
                 dfd["depth"] = depths[dfd["depth_id"].astype(int).to_numpy()]
                 dfd = dfd[["depth", "rmse", "count"]]
