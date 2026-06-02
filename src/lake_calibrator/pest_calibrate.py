@@ -288,13 +288,16 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                                     row = df_t[df_t['depth'] == d].iloc[0]
                                 else:
                                     row = df_t
-                                strf = strf + ' @,@ !%s_%d_%d!' % (objective_variable[0], i, j)
-                                combined_observations.append({
-                                    'id': f"{objective_variable[0]}_{i}_{j}",
-                                    'value': row["value"],
-                                    'weight': row["weight"]*calibration_options["objective_weights"][k],
-                                    'group': objective_variable
-                                })
+                                if np.isnan(row["value"]):
+                                    strf = strf + ' @,@'
+                                else:
+                                    strf = strf + ' @,@ !%s_%d_%d!' % (objective_variable[0], i, j)
+                                    combined_observations.append({
+                                        'id': f"{objective_variable[0]}_{i}_{j}",
+                                        'value': row["value"],
+                                        'weight': row["weight"]*calibration_options["objective_weights"][k],
+                                        'group': objective_variable
+                                    })
                             else:
                                 strf = strf + ' @,@'
                         if len(strf) > 2000:

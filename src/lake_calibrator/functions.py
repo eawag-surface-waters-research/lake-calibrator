@@ -34,7 +34,6 @@ def parse_observation_file(file, start, end, max_depth=False):
     df["depth"] = df['depth'].abs()
     if max_depth:
         df = df[df['depth'] <= max_depth]
-    df = df.dropna()
     if len(df) == 0:
         raise ValueError("No valid observations available")
     return df
