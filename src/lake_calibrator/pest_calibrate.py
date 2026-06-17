@@ -156,7 +156,7 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
         file.write('5.0 2.0 0.3 0.01 10 run_abandon_fac=1.5\n')
         file.write('5.0 5.0 0.001\n')
         file.write('0.1\n')
-        file.write('20 0.005 4 3 0.01 3\n')
+        file.write('25 0.005 4 3 0.01 3\n')
         file.write('0 0 0\n')
         file.write('* parameter groups\n')
         file.write(' fit\trelative\t0.01\t0.00001\tswitch\t2.0\tparabolic\n')
