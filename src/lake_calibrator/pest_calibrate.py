@@ -128,7 +128,9 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
             "oxygen": "Results/selmaprotbas_o2_out.dat",
             "phosphate": "Results/selmaprotbas_po_out.dat",
             "tot_phos": "Results/total_phosphorus_out.dat",
-            "nitrate": "Results/selmaprotbas_nn_out.dat"
+            "nitrate": "Results/selmaprotbas_nn_out.dat",
+            "ammonium": "Results/selmaprotbas_aa_out.dat",
+            "chla": "Results/chla_surface_out.dat"
         }
         par_file = "Calibration.par"
     elif simulation == "simstrat-fabm-selmaprotbas":
@@ -140,7 +142,8 @@ def write_pest_pst_file(calibration_folder, simulation_folder, parameters, simul
             "phosphate": "Results/selmaprotbas_po_out.dat",
             "tot_phos": "Results/total_phosphorus_out.dat",
             "nitrate": "Results/selmaprotbas_nn_out.dat",
-            "ammonium": "Results/selmaprotbas_aa_out.dat"
+            "ammonium": "Results/selmaprotbas_aa_out.dat",
+            "chla": "Results/chla_surface_out.dat"
         }
         par_file = "selmaprotbas.yaml"
 
@@ -203,7 +206,10 @@ def write_pest_tpl_file(calibration_folder, simulation_folder, parameters, simul
 
         if simulation == "simstrat":
             for parameter in parameters:
-                simstrat_config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+                if not parameter["name"] == 'BackExt':
+                    simstrat_config["ModelParameters"][parameter["name"]] = '$$%10s$$' % parameter["name"]
+                else:
+                    simstrat_config["FABMConfig"][parameter["name"]] = '$$%10s$$' % parameter["name"]
 
         elif "simstrat" in simulation and "fabm" in simulation:
             simstrat_config["ModelConfig"]["CoupleFABM"] = True
@@ -289,7 +295,8 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                                 else:
                                     row = df_t
                                 if np.isnan(row["value"]):
-                                    strf = strf + ' @,@'
+                                    if not objective_variable == 'chla':
+                                        strf = strf + ' @,@'
                                 else:
                                     strf = strf + ' @,@ !%s_%d_%d!' % (objective_variable[0], i, j)
                                     combined_observations.append({
@@ -299,7 +306,8 @@ def write_pest_ins_file(calibration_folder, calibration_options, simulation, obs
                                         'group': objective_variable
                                     })
                             else:
-                                strf = strf + ' @,@'
+                                if not objective_variable == 'chla':
+                                    strf = strf + ' @,@'
                         if len(strf) > 2000:
                             raise ValueError("Instruction file .ins: line exceeds 2000 characters - reduce the number of depths in the observations file.")
                         file.write(strf + '\n')
